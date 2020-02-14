@@ -1,3 +1,7 @@
+# Arguments that we want our external dependencies to build
+# with.  We need to set the install prefix and paths, but others
+# are optional as well if we want to control the build of all
+# external projects.
 set(cmake_common_args
     -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
     -DCMAKE_C_COMPILER:PATH=${CMAKE_C_COMPILER}
@@ -21,17 +25,9 @@ add_custom_target(submodule_init
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-# if MASTER is true, project will always be built. Else, only built if dependency
-macro(add_external_project MYNAME LOCATION MASTER DEPENDS ARGS)
-    if(NOT ${MASTER})
-        set(EXCLUDE ON)
-    else()
-        set(EXCLUDE OFF)
-    endif(NOT ${MASTER})
+macro(add_external_project MYNAME LOCATION DEPENDS ARGS)
     ExternalProject_Add( ${MYNAME}
         SOURCE_DIR ${CMAKE_SOURCE_DIR}/${LOCATION}
-        BUILD_ALWAYS 1
-        EXCLUDE_FROM_ALL ${EXCLUDE}
         DOWNLOAD_COMMAND ${GIT_EXECUTABLE} submodule update --checkout ${CMAKE_SOURCE_DIR}/${LOCATION}
         DOWNLOAD_DIR ${CMAKE_SOURCE_DIR}
         CMAKE_ARGS ${cmake_common_args} ${ARGS}
@@ -40,17 +36,21 @@ macro(add_external_project MYNAME LOCATION MASTER DEPENDS ARGS)
     )
 endmacro(add_external_project)
 
-#This depedns on JsonBox only if we are building tests
-if (BUILD_TESTS) 
-else()
-    ExternalProject_Add(acl
-      SOURCE_DIR ${CMAKE_SOURCE_DIR}
-      BUILD_ALWAYS 1
-      CMAKE_ARGS ${cmake_common_args} 
-      INSTALL_DIR ${CMAKE_BINARY_DIR}/INSTALL
-      LOG_INSTALL 1
-      DEPENDS 
-#submodule_init
-    )
-endif()
+#This depends on JsonBox only if we are building tests
+if (BUILD_TESTS)
+  find_package(JsonBox CONFIG)
+  if (NOT JSONBOX_FOUND)
+    add_external_project(JsonBox dependencies/JsonBox "" "")
+  endif ()
+  set (acl_depends JsonBox)
+endif (BUILD_TESTS)
+
+ExternalProject_Add(acl
+  SOURCE_DIR ${CMAKE_SOURCE_DIR}
+  BUILD_ALWAYS 1
+  CMAKE_ARGS ${cmake_common_args} 
+  INSTALL_DIR ${CMAKE_BINARY_DIR}/INSTALL
+  LOG_INSTALL 1
+  DEPENDS ${acl_depends}
+)
 

@@ -10,6 +10,7 @@ project(acl VERSION "0.0.0.1" )
 #General build options
 option( BUILD_STATIC_LIB "Compile the library statically (off for dynamic)" ON )
 option( USE_SUPERBUILD "Build all dependencies in SUPERBUILD mode" ON)
+option( BUILD_TESTS "Build tests" OFF)
 
 # Doxygen support
 # add a target to generate API documentation with Doxygen
