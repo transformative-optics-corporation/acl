@@ -39,7 +39,7 @@ endmacro(add_external_project)
 #This depends on JsonBox only if we are building tests
 if (BUILD_TESTS)
   find_package(JsonBox CONFIG)
-  if (NOT JSONBOX_FOUND)
+  if (NOT JsonBox_FOUND)
     add_external_project(JsonBox dependencies/JsonBox "" "")
   endif ()
   set (acl_depends JsonBox)
