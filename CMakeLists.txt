@@ -32,15 +32,24 @@ find_package(Git REQUIRED)
 ##############################################
 ## Build dependencies
 ##############################################
+
 ##Superbuild comes first. If USE_SUPERBUILD is set or not defined, only this following conditional wil
 ##be executed in this pass. The superbuild file will recursively call this CMakeLists.txt
 ##with USE_SUPERBUILD set to off to skip the SUPERBUILD part
+# So that SuperBuild can detect if someone else has
+# already built one of our dependencies in our SuperBuild install
+# directory.
+list(APPEND CMAKE_PREFIX_PATH
+   ${CMAKE_BINARY_DIR}/INSTALL/lib/cmake
+)
 if(USE_SUPERBUILD )
    include(ExternalProject)
    include(Superbuild.cmake)
    return()
 endif(USE_SUPERBUILD)
 
+# Other places that we might like to find configured packages we
+# depend on.
 list(APPEND CMAKE_PREFIX_PATH
     ${CMAKE_INSTALL_PREFIX}/lib/cmake
     usr/lib/cmake
