@@ -1,0 +1,3 @@
+[submodule "dependencies/JsonBox"]
+	path = dependencies/JsonBox
+	url = https://github.com/Aqueti/JsonBox
