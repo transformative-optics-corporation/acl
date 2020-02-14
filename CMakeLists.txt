@@ -244,7 +244,6 @@ list( APPEND ATOOL_HEADERS
 )
 
 
-
 add_library( acl STATIC  
    ${Timer_SRC}
    ${Thread_SRC}
@@ -265,8 +264,7 @@ list(APPEND TARGET_LIST acl )
 
 #############################################
 #install library files
-# This sections initiates the build of the  components in th TARGET_LIST. 
-# Each component
+# This sections initiates the build of the components in the TARGET_LIST. 
 #############################################
 configure_file(${CMAKE_SOURCE_DIR}/aclConfig.cmake.in
                ${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
