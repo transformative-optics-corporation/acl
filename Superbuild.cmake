@@ -43,6 +43,7 @@ add_custom_target(submodule_init
 
 macro(add_external_project MYNAME LOCATION DEPENDS ARGS)
     ExternalProject_Add( ${MYNAME}
+        BUILD_ALWAYS 1
         SOURCE_DIR ${CMAKE_SOURCE_DIR}/${LOCATION}
         DOWNLOAD_COMMAND ${GIT_EXECUTABLE} submodule update --checkout ${CMAKE_SOURCE_DIR}/${LOCATION}
         DOWNLOAD_DIR ${CMAKE_SOURCE_DIR}
