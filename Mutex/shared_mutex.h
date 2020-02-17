@@ -6,7 +6,6 @@
 
 #include <mutex>
 #include <atomic>
-#include "AclMutexWrap.h"
 
 namespace acl
 {
