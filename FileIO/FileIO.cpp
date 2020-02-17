@@ -44,7 +44,7 @@ std::cout << "creating directory " << dirname << std::endl;
 #endif
 	   std::vector<std::string> pathTokens = stringParser(dirname, "/");
 	   std::string path;
-	   for(int i =0; i< pathTokens.size(); ++i){
+	   for(size_t i =0; i< pathTokens.size(); ++i){
 
 		   // handle repeated, leading, trailing delimiters
 		   if(pathTokens[i].empty()) { 
