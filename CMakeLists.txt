@@ -223,7 +223,6 @@ set( Mutex_SRC
 )
 list(APPEND ATOOL_HEADERS
    Mutex/shared_mutex.h
-   Mutex/AclMutexWrap.h
 )
 
 
