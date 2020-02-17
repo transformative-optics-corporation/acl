@@ -422,6 +422,8 @@ int acl::CoreSocket::noint_poll(struct pollfd *fds, size_t nfds, int timeout)
     }
   }
   */
+  /// @tod Fix when implemented
+  return -1;
 }
 
 int acl::CoreSocket::noint_select(int width, fd_set* readfds, fd_set* writefds,
