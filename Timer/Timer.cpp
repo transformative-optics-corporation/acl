@@ -599,20 +599,6 @@ std::string convertUsecsToDate(uint64_t usecs)
  
 }
 
-/**
- * Sleeps for the given amount of time
- *
- * @param time The double to sleep in seconds (supports millisecond resolution)
- */
-void sleep(double time)
-{
-    if(time <= 0) {
-        return;
-    }
-
-    size_t msec = time * 1e3;
-    std::this_thread::sleep_for(std::chrono::milliseconds(msec));
-}
 
 /**
  * Returns the current date and time as a string
