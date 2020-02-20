@@ -127,7 +127,6 @@ extern double TimevalDurationSeconds(struct timeval endT, struct timeval startT)
 extern double TimevalMsecs(const struct timeval& tv1);
 extern struct timeval MsecsTimeval(const double dMsecs);
 
-void        sleep(double time);
 double      convertObjectIdTimeToDouble(ObjectId id);
 ObjectId    convertDoubleToObjectIdTime(double value);
 uint64_t    convertUsecsToFrameTime(uint64_t usecs, double fps);

@@ -77,7 +77,7 @@ void Thread::mainLoop(void)
 {
     threadTest << std::this_thread::get_id() <<": Thread mainLoop"<<std::endl;
     std::cerr << "WARNING: thread mainLoop method not overridden" << std::endl;
-    sleep(1);
+	std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 /**
