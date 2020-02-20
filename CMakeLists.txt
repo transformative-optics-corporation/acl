@@ -39,10 +39,16 @@ find_package(Git REQUIRED)
 # So that SuperBuild can detect if someone else has
 # already built one of our dependencies in our SuperBuild install
 # directory.
-list(APPEND CMAKE_PREFIX_PATH
-   ${CMAKE_BINARY_DIR}/INSTALL/lib/cmake
+list(APPEND CMAKE_MODULE_PATH
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake
+    ${CMAKE_INSTALL_PREFIX}/cmake
+    ${CMAKE_INSTALL_PREFIX}/lib/cmake
 )
-if(USE_SUPERBUILD )
+list(APPEND CMAKE_PREFIX_PATH
+    ${CMAKE_INSTALL_PREFIX}/lib/cmake
+    usr/lib/cmake
+)
+if(USE_SUPERBUILD)
    include(ExternalProject)
    include(Superbuild.cmake)
    return()
@@ -50,10 +56,6 @@ endif(USE_SUPERBUILD)
 
 # Other places that we might like to find configured packages we
 # depend on.
-list(APPEND CMAKE_PREFIX_PATH
-    ${CMAKE_INSTALL_PREFIX}/lib/cmake
-    usr/lib/cmake
-)
 
 include_directories(
    ${CMAKE_INSTALL_PREFIX}/include 
