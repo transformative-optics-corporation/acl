@@ -412,7 +412,11 @@ int getLastModTime(std::string name, uint64_t *time)
 		return 0 - err;
 	}
 	if(time){
+#ifdef __APPLE__
+		*time = statBuf.st_mtimespec.tv_sec * 1e6 + statBuf.st_mtimespec.tv_nsec / 1e3;
+#else
 		*time = statBuf.st_mtim.tv_sec * 1e6 + statBuf.st_mtim.tv_nsec / 1e3;
+#endif
 	} else {
 		return -EINVAL;
 	}
