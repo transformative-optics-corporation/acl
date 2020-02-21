@@ -1028,10 +1028,14 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
     }
   }
   if (options.keepIdle >= 0) {
+#ifdef TCP_KEEPIDLE
     if (setsockopt(*listen_sock, IPPROTO_TCP, TCP_KEEPIDLE, SOCK_CAST &options.keepIdle,
         sizeof(options.keepIdle)) < 0) {
       perror("setsockopt(TCP_KEEPIDLE) failed");
     }
+#else
+    fprintf(stderr,"Setting KeepIdle not yet implemented on this architecture");
+#endif
   }
   if (options.keepInterval >= 0) {
     if (setsockopt(*listen_sock, IPPROTO_TCP, TCP_KEEPINTVL, SOCK_CAST &options.keepInterval,
@@ -1039,7 +1043,7 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
       perror("setsockopt(TCP_KEEPINTVL) failed");
     }
   }
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__APPLE__)
   if (setsockopt(*listen_sock, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST &options.userTimeout,
       sizeof(options.userTimeout)) < 0) {
     perror("setsockopt(TCP_USER_TIMEOUT) failed");
@@ -1185,10 +1189,14 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
       }
     }
     if (options.keepIdle >= 0) {
+#ifdef TCP_KEEPIDLE
       if (setsockopt(*s, IPPROTO_TCP, TCP_KEEPIDLE, SOCK_CAST &options.keepIdle,
         sizeof(options.keepIdle)) < 0) {
         perror("setsockopt(TCP_KEEPIDLE) failed");
       }
+#else
+      fprintf(stderr,"Setting KeepIdle not yet implemented on this architecture");
+#endif
     }
     if (options.keepInterval >= 0) {
       if (setsockopt(*s, IPPROTO_TCP, TCP_KEEPINTVL, SOCK_CAST &options.keepInterval,
@@ -1196,7 +1204,7 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
         perror("setsockopt(TCP_KEEPINTVL) failed");
       }
     }
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__APPLE__)
     if (setsockopt(*s, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST &options.userTimeout,
       sizeof(options.userTimeout)) < 0) {
       perror("setsockopt(TCP_USER_TIMEOUT) failed");
@@ -1273,7 +1281,7 @@ bool acl::CoreSocket::cork_tcp_socket(SOCKET sock)
     fprintf(stderr, "cork_tcp_socket(): Bad socket\n");
     return false;
   }
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
   // We don't have an cork function on Windows, so we disable TCP_NODELAY
   // to try and convince it to keep data in buffers for awhile.
   struct protoent* p_entry;
@@ -1304,7 +1312,7 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
     fprintf(stderr, "uncork_tcp_socket(): Bad socket\n");
     return false;
   }
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
   // We don't have an uncork function on Windows, so we enable TCP_NODELAY
   // and then send an empty packet to force all data to go.
   struct protoent* p_entry;
