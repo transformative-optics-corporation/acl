@@ -111,13 +111,13 @@ int noint_select(int width, fd_set* readfds, fd_set* writefds,
 	fd_set* exceptfds, struct timeval* timeout);
 
 /**
- *	This routine will perform a poll() call on non-Windows platforms
- * and a WSAPoll() call on Windows.  It generalizes the size type to
+ *	This routine will perform a poll() on non-Windows platforms
+ * and emulates poll() on Windows.  It generalizes the size type to
  * one that will work on both.
- /// @return >0: The number of elements in fds that have a nonzero
- ///          revents member.  0: The timer expired.
- ///          <0: There was an error (OS specific, obtainable using
- ///          errno on non-Windows or WSAGetLastError() on Windows.
+ *   @return >0: The number of elements in fds that have a nonzero
+ *            revents member.  0: The timer expired.  -1: A signal
+ *            interrupted before timeout or an event.  -2: There was
+ *            an (unspecified) error.
  */
 int portable_poll(struct pollfd *fds, size_t nfds, int timeout);
 
@@ -125,7 +125,10 @@ int portable_poll(struct pollfd *fds, size_t nfds, int timeout);
  *	This routine will perform like a normal poll() call, but it will
  * restart if it quit because of an interrupt.  This makes it more robust
  * in its function, and allows this code to perform properly on systems that
- * sends USER1 or other interrupts.
+ * send USER1 or other interrupts.
+ *   @return >0: The number of elements in fds that have a nonzero
+ *            revents member.  0: Timeout before any events received.
+ *            -1 An (unspecified) error happened.
  */
 int noint_poll(struct pollfd *fds, size_t nfds, int timeout);
 

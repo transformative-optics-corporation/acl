@@ -379,51 +379,50 @@ int acl::CoreSocket::getmyIP(char* myIPchar, unsigned maxlen,
 	return 0;
 }
 
-int acl::CoreSocket::portable_poll(struct pollfd *fds, size_t nfds, int timeout)
+int acl::CoreSocket::portable_poll(struct pollfd* fds, size_t nfds, int timeout)
 {
 #ifdef _WIN32
-  /// @todo WSAPoll() is reported to be broken: https://daniel.haxx.se/blog/2012/10/10/wsapoll-is-broken/
-  return WSAPoll(fds, static_cast<ULONG>(nfds), timeout);
+	/// @todo WSAPoll() is reported to be broken: https://daniel.haxx.se/blog/2012/10/10/wsapoll-is-broken/
+	/// return WSAPoll(fds, static_cast<ULONG>(nfds), timeout);
+	/// @todo Implement in a way that matches the function declaration comments, then replace this.
+	return -2;
 #else
-  return poll(fds, static_cast<nfds_t>(nfds), timeout);
+	int ret = poll(fds, static_cast<nfds_t>(nfds), timeout);
+	// See if this was a timeout or a real error and return accordingly.
+	if (ret < 0) {
+		if (socket_error == EINTR) {
+			return -1;
+		} else {
+			return -2;
+		}
+	}
+  return ret;
 #endif
 }
 
 int acl::CoreSocket::noint_poll(struct pollfd *fds, size_t nfds, int timeout)
 {
-  // Use portable_poll() as a subtask and check its return values.
+  // Wrap portable_poll() and check its return values.
   // Keep track of time independently so that we can modify the timeout
-  // value for later calls.
+  // value for later calls if needed.
+	int remaining_ms = timeout;
+	auto start = std::chrono::system_clock::now();
+	do {
+		int ret = portable_poll(fds, nfds, remaining_ms);
+		if ( (ret == -2) || (ret >= 0) ) {
+			return ret;
+		}
+		// The poll was cut short by a signal, so we need to reduce the
+		// timeout and re-issue.
+		auto now = std::chrono::system_clock::now();
+		std::chrono::milliseconds dt =
+			std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+		remaining_ms = timeout - static_cast<int>(dt.count());
+	} while (remaining_ms < 0);
 
-  /// @todo Do not check for errors on Windows because it will not be stopped by
-  /// an interrupt.
-  /// @todo If the portable_poll() function does respond to signals on Windows after
-  /// it is repaired, then switch this test as appropriate.
-
-  /*
-  if (ret < 0) {
-    fprintf(stderr, "portable_poll(): Error: ");
-    int e = WSAGetLastError();
-    switch (e) {
-    case WSAENETDOWN:
-      fprintf(stderr, "The network subsystem has failed\n");
-      break;
-    case WSAEFAULT:
-      fprintf(stderr, "An exception occurred while reading user input parameters\n");
-      break;
-    case WSAEINVAL:
-      fprintf(stderr, "An invalid parameter was passed\n");
-      break;
-    case WSAENOBUFS:
-      fprintf(stderr, "The function was unable to allocate sufficient memory\n");
-      break;
-    default:
-      fprintf(stderr, "Unrecognized error code: %d\n", e);
-    }
-  }
-  */
-  /// @tod Fix when implemented
-  return -1;
+	// We took longer than requested for the timeout and then returned due
+	// to a signal, so we report timing out.
+	return -1;
 }
 
 int acl::CoreSocket::noint_select(int width, fd_set* readfds, fd_set* writefds,
