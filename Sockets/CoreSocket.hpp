@@ -160,13 +160,19 @@ int poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
 	double timeout = 0.0);
 
 /**
-	* This routine opens a socket with the requested port number.
-	* The routine returns -1 on failure and the file descriptor on success.
-	* The portno parameter is filled in with the actual port that is opened
-	* (this is useful when the address INADDR_ANY is used, since it tells
-	* what port was opened).
-	* To select between multiple NICs, we can specify the IP address of the
-	* socket to open;  NULL selects the default NIC.
+	* @brief Opens a socket with the requested port number and network interface.
+  *
+  * @param [in] type The type of socket: SOCK_DGRAM (udp) or SOCK_STREAM (tcp).
+  * @param [inout] portno A pointer to a value containing the port to open,
+  *           a Null pointer or a pointer to 0 means "any port", and a pointer
+  *           to a number specifies that port.  If a pointer to 0 is passed in,
+  *           the actual port opened will be filled into on successful return.
+  * @param [inout] IPaddress A pointer to the dotted-decimal or DNS name of
+  *           one of the network interfaces associated with this computer. A
+  *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
+  *           default interface.  A non-empty name will select a particular
+  *           interface.
+	* @return BAD_SOCKET on failure and the socket identifier on success.
 	*/
 
 SOCKET open_socket(int type, unsigned short* portno, const char* IPaddress);
@@ -295,6 +301,7 @@ int getmyIP(char* myIPchar, unsigned maxlen,
 bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *s,
   TCPOptions options = TCPOptions());
 
+/// @return 0 on success, nonzero on failure.
 int close_socket(SOCKET sock);
 
 /// @brief Cause a TCP socket to accumulate data but not to send it.

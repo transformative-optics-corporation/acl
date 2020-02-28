@@ -244,7 +244,6 @@ list( APPEND ATOOL_HEADERS
    FileIO/FileIO.h
 )
 
-
 add_library( acl STATIC  
    ${Timer_SRC}
    ${Thread_SRC}
@@ -256,12 +255,34 @@ add_library( acl STATIC
    ${Sockets_SRC}
 )
 
-target_link_libraries( acl
+target_link_libraries( acl PUBLIC
     Threads::Threads
 )
+if(WIN32)
+  target_link_libraries( acl PUBLIC
+      Ws2_32
+  )
+endif()
 
 list(APPEND TARGET_LIST acl )
 
+#############################################
+# Build tests, if we're configured to do so.
+#############################################
+
+if(BUILD_TESTS)
+  set(TEST_APPS
+    acl_CoreSocket_Test
+  )
+  foreach(APP ${TEST_APPS})
+    add_executable(${APP} test/${APP}.cpp)
+    target_link_libraries(${APP}
+      acl
+    )
+    set_target_properties(${APP} PROPERTIES FOLDER tests)
+    install(TARGETS ${APP} RUNTIME DESTINATION bin COMPONENT tests)
+  endforeach()
+endif()
 
 #############################################
 #install library files
