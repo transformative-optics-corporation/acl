@@ -178,14 +178,36 @@ int poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
 SOCKET open_socket(int type, unsigned short* portno, const char* IPaddress);
 
 /**
- * Create a UDP socket and bind it to its local address.
- */
+  * @brief Opens a UDP socket with the requested port number and network interface.
+  *
+  * @param [inout] portno A pointer to a value containing the port to open,
+  *           a Null pointer or a pointer to 0 means "any port", and a pointer
+  *           to a number specifies that port.  If a pointer to 0 is passed in,
+  *           the actual port opened will be filled into on successful return.
+  * @param [inout] IPaddress A pointer to the dotted-decimal or DNS name of
+  *           one of the network interfaces associated with this computer. A
+  *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
+  *           default interface.  A non-empty name will select a particular
+  *           interface.
+  * @return BAD_SOCKET on failure and the socket identifier on success.
+  */
 
 SOCKET open_udp_socket(unsigned short* portno, const char* IPaddress);
 
 /**
- * Create a TCP socket and bind it to its local address.
- */
+  * @brief Opens a TCP socket with the requested port number and network interface.
+  *
+  * @param [inout] portno A pointer to a value containing the port to open,
+  *           a Null pointer or a pointer to 0 means "any port", and a pointer
+  *           to a number specifies that port.  If a pointer to 0 is passed in,
+  *           the actual port opened will be filled into on successful return.
+  * @param [inout] IPaddress A pointer to the dotted-decimal or DNS name of
+  *           one of the network interfaces associated with this computer. A
+  *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
+  *           default interface.  A non-empty name will select a particular
+  *           interface.
+  * @return BAD_SOCKET on failure and the socket identifier on success.
+  */
 
 SOCKET open_tcp_socket(unsigned short* portno = NULL, const char* NIC_IP = NULL);
 
@@ -301,7 +323,10 @@ int getmyIP(char* myIPchar, unsigned maxlen,
 bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *s,
   TCPOptions options = TCPOptions());
 
-/// @return 0 on success, nonzero on failure.
+/// @brief Close a socket.
+/// @param [in] Socket descriptor returned by open_socket() or one of the routines
+///         that call it; open_udp_socket() or open_tcp_socket().
+/// @return 0 on success, nonzero on failure, -100 if sock is BAD_SOCKET.
 int close_socket(SOCKET sock);
 
 /// @brief Cause a TCP socket to accumulate data but not to send it.

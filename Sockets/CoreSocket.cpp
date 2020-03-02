@@ -1271,6 +1271,9 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
 
 int acl::CoreSocket::close_socket(SOCKET sock)
 {
+	if (sock == BAD_SOCKET) {
+		return -100;
+	}
 	return closeSocket(sock);
 }
 
