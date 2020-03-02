@@ -271,6 +271,7 @@ list(APPEND TARGET_LIST acl )
 #############################################
 
 if(BUILD_TESTS)
+  enable_testing()
   set(TEST_APPS
     acl_CoreSocket_Test
   )
@@ -280,6 +281,7 @@ if(BUILD_TESTS)
       acl
     )
     set_target_properties(${APP} PROPERTIES FOLDER tests)
+    add_test(NAME ${APP} COMMAND ${APP})
     install(TARGETS ${APP} RUNTIME DESTINATION bin COMPONENT tests)
   endforeach()
 endif()
@@ -309,4 +311,3 @@ install(FILES ${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
 install(EXPORT ${PROJECT_NAME}
         DESTINATION lib${LIB_SUFFIX}/cmake
         FILE ${PROJECT_NAME}Targets.cmake)
-
