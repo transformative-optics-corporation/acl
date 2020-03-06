@@ -89,14 +89,20 @@ namespace acl { namespace CoreSocket {
 int noint_block_write(SOCKET outsock, const char* buffer, size_t length);
 
 /**
+ * @brief Read the specified number of bytes, retrying in case of interrupts.
+ *
  *      This routine will read in a block from the file descriptor.
  * It acts just like the read() routine does on normal files, so that
  * it hides the fact that the descriptor may point to a socket.
  *      This will also take care of problems caused by interrupted system
  * calls, retrying the read when they occur.
  *	This routine will either read the requested number of bytes and
- * return that or return -1 (in the case of an error) or 0 (in the case
- * of EOF being reached before all the data arrives).
+ * return that or return -1 (in the case of an error) or the number
+ * of bytes read (in the case of EOF being reached before all the data arrives).
+ * @param [in] insock Socket to read from
+ * @param [out] buffer Pointer to the buffer to write the data to.  The client
+ *          must have allocated at least length characters here.
+ * @param [in] length How many characters to read.
  */
 
 int noint_block_read(SOCKET insock, char* buffer, size_t length);
@@ -148,12 +154,20 @@ int noint_block_read_timeout(SOCKET infile, char buffer[], size_t length,
 	struct timeval* timeout);
 
 /**
+ * @brief Poll for accept on a socket that is listening.
+ *
  * This routine will check the listen socket to see if there has been a
  * connection request. If so, it will accept a connection on the accept
  * socket and set TCP_NODELAY on that socket. The attempt will timeout
- * in the amount of time specified.  If the accept and set are
- * successful, it returns 1. If there is nothing asking for a connection,
- * it returns 0. If there is an error along the way, it returns -1.
+ * in the amount of time specified.  
+ * @param [in] listen_sock The socket that is listening.
+ * @param [out] accept_sock Pointer to the socket to be filled in if
+ *          an accept was made.
+ * @param [in] timeout How long to wait in seconds before giving up and
+ *          returning.
+ * @return If the accept and set are successful, it returns 1. If there
+ * is nothing asking for a connection, it returns 0. If there is an error
+ * along the way, it returns -1.
  */
 
 int poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
@@ -172,10 +186,15 @@ int poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
   *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
   *           default interface.  A non-empty name will select a particular
   *           interface.
-	* @return BAD_SOCKET on failure and the socket identifier on success.
+  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
+  *           by another application?  This is useful when there is a zombie
+  *           server on a well-known port and you're trying to re-open that
+  *           port as its replacement.
+  * @return BAD_SOCKET on failure and the socket identifier on success.
 	*/
 
-SOCKET open_socket(int type, unsigned short* portno, const char* IPaddress);
+SOCKET open_socket(int type, unsigned short* portno, const char* IPaddress,
+  bool reuseAddr = false);
 
 /**
   * @brief Opens a UDP socket with the requested port number and network interface.
@@ -189,10 +208,15 @@ SOCKET open_socket(int type, unsigned short* portno, const char* IPaddress);
   *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
   *           default interface.  A non-empty name will select a particular
   *           interface.
+  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
+  *           by another application?  This is useful when there is a zombie
+  *           server on a well-known port and you're trying to re-open that
+  *           port as its replacement.
   * @return BAD_SOCKET on failure and the socket identifier on success.
   */
 
-SOCKET open_udp_socket(unsigned short* portno, const char* IPaddress);
+SOCKET open_udp_socket(unsigned short* portno, const char* IPaddress,
+  bool reuseAddr = false);
 
 /**
   * @brief Opens a TCP socket with the requested port number and network interface.
@@ -206,10 +230,15 @@ SOCKET open_udp_socket(unsigned short* portno, const char* IPaddress);
   *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
   *           default interface.  A non-empty name will select a particular
   *           interface.
+  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
+  *           by another application?  This is useful when there is a zombie
+  *           server on a well-known port and you're trying to re-open that
+  *           port as its replacement.
   * @return BAD_SOCKET on failure and the socket identifier on success.
   */
 
-SOCKET open_tcp_socket(unsigned short* portno = NULL, const char* NIC_IP = NULL);
+SOCKET open_tcp_socket(unsigned short* portno = NULL, const char* NIC_IP = NULL,
+  bool reuseAddr = false);
 
 /**
  * Create a UDP socket and connect it to a specified port.
@@ -290,17 +319,25 @@ public:
 };
 
 /**
- * This routine will get a TCP socket that is ready to accept connections.
- * That is, listen() has already been called on it.
+ * @brief Get a TCP socket that is ready to accept connections.
+ *
+ * Ready to accept means that listen() has already been called on it.
  * It will get whatever socket is available from the system. It returns
  * 0 on success and -1 on failure. On success, it fills in the pointers to
  * the socket and the port number of the socket that it obtained.
  * To select between multiple network interfaces, we can specify an IPaddress;
  * the default value is NULL, which uses the default NIC.
+ * @param [out] listen_sock The socket that was opened.
+ * @param [out] listen_portnum The port that the socket is listening on.
+ * @param [in] NIC_IP Name or dotted-decimal IP address of the network
+ *          interface to use.  The default Null pointer means "listen on all".
+ * @param [in] backlog How many connections can be pending before new ones
+ *          are rejected.
+ * @param [in] options Options to set on the TCP socket.
  */
 
 int get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
-	const char* NIC_IP = NULL, int backlog = 1000, bool reuseAddr = true, TCPOptions options = TCPOptions());
+	const char* NIC_IP = NULL, int backlog = 1000, TCPOptions options = TCPOptions());
 
 /**
  *   This function returns the host IP address in string form.  For example,
@@ -318,8 +355,14 @@ int getmyIP(char* myIPchar, unsigned maxlen,
 	const char* NIC_IP = NULL,
 	SOCKET incoming_socket = BAD_SOCKET);
 
+/// @brief Open a client TCP socket and connect it to a server on a known port
+/// @param [in] DNS name or dotted-decimal IP name of the host to connect to.
+/// @param [in] port The port to connect to.
 /// @param [in] NICaddress Name of the network card to use, can be obtained
-///             by calling getmyIP() or set to NULL to listen on all IP addresses.
+///             by calling getmyIP() or set to NULL to use the default network card.
+/// @param [out] s Pointer to be filled in with the socket that is connected.
+/// @param [in] options Options to set on the TCP socket.
+/// @return True on success, false on failure.
 bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *s,
   TCPOptions options = TCPOptions());
 

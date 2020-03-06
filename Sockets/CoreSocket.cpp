@@ -563,7 +563,7 @@ int acl::CoreSocket::noint_block_read(int infile, char buffer[], size_t length)
 	} while ((ret > 0) && (static_cast<size_t>(sofar) < length));
 
 	if (ret == -1) return (-1); /* Error during read */
-	if (ret == 0) return (0);   /* EOF reached */
+	if (ret == 0) return (sofar);   /* EOF reached */
 
 	return (sofar); /* All bytes read */
 }
@@ -611,7 +611,7 @@ int acl::CoreSocket::noint_block_read(SOCKET insock, char* buffer, size_t length
 			return -1;
 		}
 		if (nread == 0) { /* socket closed */
-			return 0;
+			return static_cast<int>(sofar);
 		}
 
 		sofar += nread;
@@ -721,7 +721,7 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char buffer[], size
 }
 
 acl::CoreSocket::SOCKET acl::CoreSocket::open_socket(int type, unsigned short* portno,
-	const char* IPaddress)
+	const char* IPaddress, bool reuseAddr)
 {
 	struct sockaddr_in name;
 	struct hostent* phe; /* pointer to host information entry   */
@@ -736,6 +736,13 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_socket(int type, unsigned short* p
 			socket_error_to_chars(socket_error));
 #endif
 		return BAD_SOCKET;
+	}
+
+	if (reuseAddr) {
+		int enable = 1;
+		if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, SOCK_CAST & enable, sizeof(enable)) < 0) {
+			perror("setsockopt(SO_REUSEADDR) failed");
+		}
 	}
 
 	// Added by Eric Boren to address socket reconnectivity on the Android
@@ -822,15 +829,16 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_socket(int type, unsigned short* p
 	return sock;
 }
 
-acl::CoreSocket::SOCKET acl::CoreSocket::open_udp_socket(unsigned short* portno, const char* IPaddress)
+acl::CoreSocket::SOCKET acl::CoreSocket::open_udp_socket(unsigned short* portno, const char* IPaddress,
+	bool reuseAddr)
 {
-	return open_socket(SOCK_DGRAM, portno, IPaddress);
+	return open_socket(SOCK_DGRAM, portno, IPaddress, reuseAddr);
 }
 
 acl::CoreSocket::SOCKET acl::CoreSocket::open_tcp_socket(unsigned short* portno,
-	const char* NIC_IP)
+	const char* NIC_IP, bool reuseAddr)
 {
-	return open_socket(SOCK_STREAM, portno, NIC_IP);
+	return open_socket(SOCK_STREAM, portno, NIC_IP, reuseAddr);
 }
 
 acl::CoreSocket::SOCKET acl::CoreSocket::connect_udp_port(const char* machineName, int remotePort,
@@ -996,7 +1004,7 @@ int acl::CoreSocket::udp_request_lob_packet(
 }
 
 int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
-	const char* NIC_IP, int backlog, bool reuseAddr, TCPOptions options)
+	const char* NIC_IP, int backlog, TCPOptions options)
 {
 	struct sockaddr_in listen_name; /* The listen socket binding name */
 	int listen_namelen;
@@ -1011,13 +1019,6 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
 		fprintf(stderr, "get_a_TCP_socket:  socket didn't open.\n");
 		return -1;
 	}
-
-  if (reuseAddr) {
-    int enable = 1;
-    if (setsockopt(*listen_sock, SOL_SOCKET, SO_REUSEADDR, SOCK_CAST &enable, sizeof(enable)) < 0) {
-      perror("setsockopt(SO_REUSEADDR) failed");
-    }
-  }
 
   // Set the socket options based on the parameter passed in.
   if (options.keepCount >= 0) {
