@@ -734,7 +734,6 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_socket(int type, unsigned short* p
 
 	// create an Internet socket of the appropriate type
 	SOCKET sock = socket(AF_INET, type, 0);
-	printf("XXX %lld\n", sock);
 	if (sock == BAD_SOCKET) {
 		fprintf(stderr, "open_socket: can't open socket.\n");
 #ifndef _WIN32_WCE
