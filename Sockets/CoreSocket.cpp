@@ -1340,15 +1340,17 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
 int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 {
 #ifdef ACL_USE_WINSOCK_SOCKETS
-	// On Windows, we're still using select.
 	/// @todo Remove this branch when portable_poll() is implemented on Windows.
 
-	// Make sure our socket is valid to be used with select.
-	if (s >= FD_SETSIZE) {
-		perror("acl::CoreSocket::check_ready_to_read_timeout(): File descriptor too large");
-		return -1;
-	}
-
+	// On Windows, we're still using select.  It turns out that the Windows
+	// implementation of poll() does not work in some circumstances.
+	// Surprisingly, its implementation of fd_set is such that it can handle
+	// arbitrary SOCKET values (which would be file descriptors on Linux), but
+	// only FD_SETSIZE of them in the same fd_set.  So long as we're only using
+	// one descriptor (which we are), it does not have a limit on is value the
+	// way the bitmask implementation in Linux does.  This means that we don't
+	// need to use poll() on Windows to handle arbitrary numbers of sockets, so
+	// long as we don't try to fit too many of them into the same call to select().
 	fd_set readfds, exceptfds;
 	struct timeval t;
 
