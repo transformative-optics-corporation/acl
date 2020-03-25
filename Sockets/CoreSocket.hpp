@@ -379,6 +379,16 @@ bool cork_tcp_socket(SOCKET sock);
 /// On Windows, this has the side effect of enabling TCP_NODELAY on the socket.
 bool uncork_tcp_socket(SOCKET sock);
 
+/// @brief Helper function that determines whether the socket is ready to read.
+///
+/// Note that for a socket that is in the listen state then ready to read
+/// indicates that it is ready to call accept() on.
+/// @param [in] s Socket to check
+/// @param [in] timeout Time in seconds to wait until giving up.
+/// @return -1 on error or socket exception, 0 on timeout, 1 if there is data
+///         ready to ready (or the socket is ready to accept a connection).
+int check_ready_to_read_timeout(SOCKET s, double timeout);
+
 /// @brief Convert types to and from network-standard byte order.
 double hton(double d);
 double ntoh(double d);

@@ -6,6 +6,7 @@
 #include <system_error>
 #include <math.h>
 #include <Timer.h>
+#include <climits>
 #include <CoreSocket.hpp>
 #ifdef _WIN32
 #include "Ws2ipdef.h"
@@ -644,7 +645,6 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char buffer[], size
 	// TCH 4 Jan 2000 - hackish - Cygwin will block forever on a 0-length
 	// read(), and from the man pages this is close enough to in-spec that
 	// other OS may do the same thing.
-
 	if (!length) {
 		return 0;
 	}
@@ -666,27 +666,19 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char buffer[], size
 
 	size_t sofar = 0;/* How many we read so far */
 	do {
-		int sel_ret;
-		fd_set readfds, exceptfds;
-
-		/* See if there is a character ready for read */
-		FD_ZERO(&readfds);
-		FD_SET(infile, &readfds);
-		FD_ZERO(&exceptfds);
-		FD_SET(infile, &exceptfds);
-		sel_ret = noint_select(static_cast<int>(infile) + 1, &readfds,
-			NULL, &exceptfds, timeout2ptr);
-		if (sel_ret == -1) { /* Some sort of error on select() */
+		// Figure out how long to wait before giving up.  If the timeout
+		// pointer is null, this means forever which we replace with a very
+		// large number of seconds (not too large to fit into a long).
+		double to = LONG_MAX;
+		if (timeout2ptr) {
+			to = timeout2ptr->tv_sec + timeout2ptr->tv_usec * 1e-6;
+		}
+		int ready = check_ready_to_read_timeout(infile, to);
+		if (ready == -1) {
 			return -1;
 		}
-		if (FD_ISSET(infile, &exceptfds)) { /* Exception */
-			return -1;
-		}
-		if (!FD_ISSET(infile, &readfds)) { /* No characters */
-			if ((timeout != NULL) && (timeout->tv_sec == 0) &&
-				(timeout->tv_usec == 0)) {      /* Quick poll */
-				return static_cast<int>(sofar); /* Timeout! */
-			}
+		if (!ready && (to == 0)) { /* No characters after 0-length poll */
+			return static_cast<int>(sofar); /* Timeout! */
 		}
 
 		/* See what time it is now and how long we have to go */
@@ -699,7 +691,9 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char buffer[], size
 			}
 		}
 
-		if (!FD_ISSET(infile, &readfds)) { /* No chars yet */
+		if (!ready) {
+			// No chars ready, but we have not yet reached our timeout.
+			// Go back and wait some more.
 			ret = 0;
 			continue;
 		}
@@ -1087,26 +1081,11 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
 int acl::CoreSocket::poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
 	double timeout)
 {
-	fd_set readfds, exceptfds;
-	struct timeval t;
-
-	// See if we have a connection attempt within the timeout
-	FD_ZERO(&readfds);
-	FD_SET(listen_sock, &readfds); /* Check for read (connect) */
-	FD_ZERO(&exceptfds);
-	FD_SET(listen_sock, &exceptfds);
-	t.tv_sec = (long)(timeout);
-	t.tv_usec = (long)((timeout - t.tv_sec) * 1000000L);
-	if (noint_select(static_cast<int>(listen_sock) + 1, &readfds, NULL, &exceptfds,
-		&t) == -1) {
-		perror("poll_for_accept: select() failed");
+	int ready = check_ready_to_read_timeout(listen_sock, timeout);
+	if (ready == -1) {
 		return -1;
 	}
-	if (FD_ISSET(listen_sock, &exceptfds)) { /* Exception */
-		perror("poll_for_accept: exception occurred during poll");
-		return -1;
-	}
-	if (FD_ISSET(listen_sock, &readfds)) { /* Got one! */
+	if (ready) { /* Got one! */
 		/* Accept the connection from the remote machine and set TCP_NODELAY
 		* on the socket. */
 		if ((*accept_sock = accept(listen_sock, 0, 0)) == -1) {
@@ -1356,6 +1335,31 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
   }
 #endif
   return true;
+}
+
+int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
+{
+	fd_set readfds, exceptfds;
+	struct timeval t;
+
+	// See if we have a connection attempt within the timeout
+	FD_ZERO(&readfds);
+	FD_SET(s, &readfds); /* Check for read (or ready to connect) */
+	FD_ZERO(&exceptfds);
+	FD_SET(s, &exceptfds);
+	t.tv_sec = static_cast<long>(timeout);
+	t.tv_usec = static_cast<long>((timeout - t.tv_sec) * 1000000L);
+	if (noint_select(static_cast<int>(s) + 1, &readfds, NULL, &exceptfds, &t) == -1) {
+		return -1;
+	}
+	if (FD_ISSET(s, &exceptfds)) { /* Exception */
+		return -1;
+	}
+	if (FD_ISSET(s, &readfds)) { /* Ready to read or connect */
+		return 1;
+	}
+	// Not ready, we timed out.
+	return 0;
 }
 
 // From this we get the variable "ACL_big_endian" set to true if the machine we
