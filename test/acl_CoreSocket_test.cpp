@@ -200,8 +200,10 @@ int main(unsigned argc, const char* argv[])
     }
   }
 
-  /// @todo Test reusing socket parameter to open sockets.
+  /// @todo Test reuseAddr parameter to open_socket().
 
   /// @todo More tests
+
+  std::cout << "Success!" << std::endl;
   return 0;
 }

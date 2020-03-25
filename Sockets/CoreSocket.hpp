@@ -81,9 +81,8 @@ namespace acl { namespace CoreSocket {
  * calls, retrying the write when they occur.  It will also work when
  * sending large blocks of data through socket connections, since it will
  * send all of the data before returning.
- *	This routine will either write the requested number of bytes and
- * return that or return -1 (in the case of an error) or 0 (in the case
- * of EOF being reached before all the data is sent).
+ *	This routine will return the number of bytes written (which may be
+* less than requested in case of EOF), or -1 in the case of an error.
  */
 
 int noint_block_write(SOCKET outsock, const char* buffer, size_t length);
