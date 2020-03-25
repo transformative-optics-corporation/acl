@@ -1087,20 +1087,26 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
 int acl::CoreSocket::poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
 	double timeout)
 {
-	fd_set rfds;
+	fd_set readfds, exceptfds;
 	struct timeval t;
 
 	// See if we have a connection attempt within the timeout
-	FD_ZERO(&rfds);
-	FD_SET(listen_sock, &rfds); /* Check for read (connect) */
+	FD_ZERO(&readfds);
+	FD_SET(listen_sock, &readfds); /* Check for read (connect) */
+	FD_ZERO(&exceptfds);
+	FD_SET(listen_sock, &exceptfds);
 	t.tv_sec = (long)(timeout);
 	t.tv_usec = (long)((timeout - t.tv_sec) * 1000000L);
-	if (noint_select(static_cast<int>(listen_sock) + 1, &rfds, NULL, NULL,
+	if (noint_select(static_cast<int>(listen_sock) + 1, &readfds, NULL, &exceptfds,
 		&t) == -1) {
 		perror("poll_for_accept: select() failed");
 		return -1;
 	}
-	if (FD_ISSET(listen_sock, &rfds)) { /* Got one! */
+	if (FD_ISSET(listen_sock, &exceptfds)) { /* Exception */
+		perror("poll_for_accept: exception occurred during poll");
+		return -1;
+	}
+	if (FD_ISSET(listen_sock, &readfds)) { /* Got one! */
 		/* Accept the connection from the remote machine and set TCP_NODELAY
 		* on the socket. */
 		if ((*accept_sock = accept(listen_sock, 0, 0)) == -1) {
@@ -1113,8 +1119,7 @@ int acl::CoreSocket::poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
 			int nonzero = 1;
 
 			if ((p_entry = getprotobyname("TCP")) == NULL) {
-				fprintf(stderr,
-					"poll_for_accept: getprotobyname() failed.\n");
+				fprintf(stderr, "poll_for_accept: getprotobyname() failed.\n");
 				closeSocket(*accept_sock);
 				return (-1);
 			}
