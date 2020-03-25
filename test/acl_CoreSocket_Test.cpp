@@ -83,10 +83,8 @@ void TestWriteToSocket(bool& result, SOCKET s, int bytes, int chunkSize)
   return;
 }
 
-int main(unsigned argc, const char* argv[])
+int main(int argc, const char* argv[])
 {
-  // Base port to use for socket testing
-  int SOCKET_BASE = 10000;
 
   // Test closing a bad socket.
   {
