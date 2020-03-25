@@ -383,8 +383,19 @@ int acl::CoreSocket::portable_poll(struct pollfd* fds, size_t nfds, int timeout)
 {
 #ifdef _WIN32
 	/// @todo WSAPoll() is reported to be broken: https://daniel.haxx.se/blog/2012/10/10/wsapoll-is-broken/
-	/// return WSAPoll(fds, static_cast<ULONG>(nfds), timeout);
 	/// @todo Implement in a way that matches the function declaration comments, then replace this.
+	/// @todo On Windows, it is not clear whether WSAPoll will return early due to interrupt, but it seems
+	/// like if it does so then it will return 0 because none of the listed error return codes are due
+	/// to interrupt before timeout completed.
+	/*
+	int ret = WSAPoll(fds, static_cast<ULONG>(nfds), timeout);
+	if (ret == SOCKET_ERROR) {
+		return -2;
+	}
+	return ret;
+	*/
+	/// @todo This is not yet implemented on Windows, so we return an error to indicate this.
+	perror("acl::CoreSocket::portable_poll() not yet implemented on this architecture");
 	return -2;
 #else
 	int ret = poll(fds, static_cast<nfds_t>(nfds), timeout);
