@@ -380,63 +380,6 @@ int acl::CoreSocket::getmyIP(char* myIPchar, unsigned maxlen,
 	return 0;
 }
 
-int acl::CoreSocket::portable_poll(struct pollfd* fds, size_t nfds, int timeout)
-{
-#ifdef _WIN32
-	/// @todo WSAPoll() is reported to be broken: https://daniel.haxx.se/blog/2012/10/10/wsapoll-is-broken/
-	/// @todo Implement in a way that matches the function declaration comments, then replace this.
-	/// @todo On Windows, it is not clear whether WSAPoll will return early due to interrupt, but it seems
-	/// like if it does so then it will return 0 because none of the listed error return codes are due
-	/// to interrupt before timeout completed.
-	/*
-	int ret = WSAPoll(fds, static_cast<ULONG>(nfds), timeout);
-	if (ret == SOCKET_ERROR) {
-		return -2;
-	}
-	return ret;
-	*/
-	/// @todo This is not yet implemented on Windows, so we return an error to indicate this.
-	perror("acl::CoreSocket::portable_poll() not yet implemented on this architecture");
-	return -2;
-#else
-	int ret = poll(fds, static_cast<nfds_t>(nfds), timeout);
-	// See if this was a timeout or a real error and return accordingly.
-	if (ret < 0) {
-		if (socket_error == EINTR) {
-			return -1;
-		} else {
-			return -2;
-		}
-	}
-  return ret;
-#endif
-}
-
-int acl::CoreSocket::noint_poll(struct pollfd *fds, size_t nfds, int timeout)
-{
-  // Wrap portable_poll() and check its return values.
-  // Keep track of time independently so that we can modify the timeout
-  // value for later calls if needed.
-	int remaining_ms = timeout;
-	auto start = std::chrono::system_clock::now();
-	do {
-		int ret = portable_poll(fds, nfds, remaining_ms);
-		if ( (ret == -2) || (ret >= 0) ) {
-			return ret;
-		}
-		// The poll was cut short by a signal, so we need to reduce the
-		// timeout and re-issue.
-		auto now = std::chrono::system_clock::now();
-		std::chrono::milliseconds dt =
-			std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-		remaining_ms = timeout - static_cast<int>(dt.count());
-	} while (remaining_ms < 0);
-
-	// We took longer than requested for the timeout and then returned due
-	// to a signal, so we report timing out.
-	return -1;
-}
-
 int acl::CoreSocket::noint_select(int width, fd_set* readfds, fd_set* writefds,
 	fd_set* exceptfds, struct timeval* timeout)
 {
@@ -1306,8 +1249,6 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
 int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 {
 #ifdef ACL_USE_WINSOCK_SOCKETS
-	/// @todo Remove this branch when portable_poll() is implemented on Windows.
-
 	// On Windows, we're still using select.  It turns out that the Windows
 	// implementation of poll() does not work in some circumstances.
 	// Surprisingly, its implementation of fd_set is such that it can handle
@@ -1343,7 +1284,7 @@ int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 	struct pollfd poll_set = {0};
 	poll_set.fd = s;
 	poll_set.events = POLLIN;
-	int ret = portable_poll(&poll_set, 1, static_cast<int>(timeout*1000));
+	int ret = poll(&poll_set, 1, static_cast<int>(timeout*1000));
 	// If we got an event or exception, return -1
 	if (poll_set.revents & (POLLERR | POLLHUP | POLLNVAL)) {
 		return -1;
