@@ -73,6 +73,28 @@ namespace acl { namespace CoreSocket {
   static const SOCKET BAD_SOCKET = INVALID_SOCKET;
 #endif
 
+/// @brief Options passed to TCP socket-creation routines.
+class TCPOptions {
+public:
+  // These are the defaults for an Aqueti connection.
+  bool keepAlive = true;
+  int keepCount = 4;
+  int keepIdle = 20;
+  int keepInterval = 5;
+  unsigned userTimeout = 15000;
+  bool reuseAddr = false;
+
+  // These are the system defaults
+  void UseSystemDefaults() {
+    keepAlive = false;
+    keepCount = -1;
+    keepIdle = -1;
+    keepInterval = -1;
+    userTimeout = 0;
+    reuseAddr = false;
+  }
+};
+
 /**
  *      This routine will write a block to a file descriptor.  It acts just
  * like the write() system call does on files, but it will keep sending to
@@ -229,15 +251,13 @@ SOCKET open_udp_socket(unsigned short* portno, const char* IPaddress,
   *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
   *           default interface.  A non-empty name will select a particular
   *           interface.
-  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
-  *           by another application?  This is useful when there is a zombie
-  *           server on a well-known port and you're trying to re-open that
-  *           port as its replacement.
+  * @param [in] options Set of options for the socket that defaults to Aqueti
+  *           default values.
   * @return BAD_SOCKET on failure and the socket identifier on success.
   */
 
 SOCKET open_tcp_socket(unsigned short* portno = NULL, const char* NIC_IP = NULL,
-  bool reuseAddr = false);
+  TCPOptions options = TCPOptions());
 
 /**
  * Create a UDP socket and connect it to a specified port.
@@ -296,26 +316,6 @@ int udp_request_lob_packet(
 	const int local_port, // TCP port on this machine
 	const char* NIC_IP = NULL);
 
-
-/// @brief Options passed to TCP socket-creation routines.
-class TCPOptions {
-public:
-  // These are the defaults for an Aqueti connection.
-  bool keepAlive = true;
-  int keepCount = 4;
-  int keepIdle = 20;
-  int keepInterval = 5;
-  unsigned userTimeout = 15000;
-
-  // These are the system defaults
-  void UseSystemDefaults() {
-    keepAlive = false;
-    keepCount = -1;
-    keepIdle = -1;
-    keepInterval = -1;
-    userTimeout = 0;
-  }
-};
 
 /**
  * @brief Get a TCP socket that is ready to accept connections.

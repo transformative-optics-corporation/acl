@@ -734,6 +734,7 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_socket(int type, unsigned short* p
 
 	// create an Internet socket of the appropriate type
 	SOCKET sock = socket(AF_INET, type, 0);
+	printf("XXX %lld\n", sock);
 	if (sock == BAD_SOCKET) {
 		fprintf(stderr, "open_socket: can't open socket.\n");
 #ifndef _WIN32_WCE
@@ -841,9 +842,70 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_udp_socket(unsigned short* portno,
 }
 
 acl::CoreSocket::SOCKET acl::CoreSocket::open_tcp_socket(unsigned short* portno,
-	const char* NIC_IP, bool reuseAddr)
+	const char* NIC_IP, TCPOptions options)
 {
-	return open_socket(SOCK_STREAM, portno, NIC_IP, reuseAddr);
+	SOCKET s = open_socket(SOCK_STREAM, portno, NIC_IP, options.reuseAddr);
+
+	/* Set the socket options */
+#if !defined(_WIN32_WCE) && !defined(__ANDROID__)
+	{
+		// Set the socket options based on the parameter passed in.
+		if (options.keepCount >= 0) {
+			if (setsockopt(s, IPPROTO_TCP, TCP_KEEPCNT, SOCK_CAST & options.keepCount,
+				sizeof(options.keepCount)) < 0) {
+				perror("setsockopt(TCP_KEEPCNT) failed");
+			}
+		}
+		if (options.keepIdle >= 0) {
+#ifdef TCP_KEEPIDLE
+			if (setsockopt(s, IPPROTO_TCP, TCP_KEEPIDLE, SOCK_CAST & options.keepIdle,
+				sizeof(options.keepIdle)) < 0) {
+				perror("setsockopt(TCP_KEEPIDLE) failed");
+			}
+#else
+			fprintf(stderr, "Setting KeepIdle not yet implemented on this architecture");
+#endif
+		}
+		if (options.keepInterval >= 0) {
+			if (setsockopt(s, IPPROTO_TCP, TCP_KEEPINTVL, SOCK_CAST & options.keepInterval,
+				sizeof(options.keepInterval)) < 0) {
+				perror("setsockopt(TCP_KEEPINTVL) failed");
+			}
+		}
+#if !defined(_WIN32) && !defined(__APPLE__)
+		if (setsockopt(s, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST & options.userTimeout,
+			sizeof(options.userTimeout)) < 0) {
+			perror("setsockopt(TCP_USER_TIMEOUT) failed");
+		}
+#endif
+		if (options.keepAlive) {
+			int enable = 1;
+			if (setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, SOCK_CAST & enable, sizeof(enable)) < 0) {
+				perror("setsockopt(SO_KEEPALIVE) failed");
+			}
+		}
+
+		struct protoent* p_entry;
+		int nonzero = 1;
+
+		if ((p_entry = getprotobyname("TCP")) == NULL) {
+			fprintf(
+				stderr,
+				"connect_tcp_to: getprotobyname() failed.\n");
+			closeSocket(s);
+			return BAD_SOCKET;
+		}
+
+		if (setsockopt(s, p_entry->p_proto, TCP_NODELAY,
+			SOCK_CAST & nonzero, sizeof(nonzero)) == -1) {
+			perror("connect_tcp_to: setsockopt() failed");
+			closeSocket(s);
+			return BAD_SOCKET;
+		}
+	}
+#endif
+
+	return s;
 }
 
 acl::CoreSocket::SOCKET acl::CoreSocket::connect_udp_port(const char* machineName, int remotePort,
@@ -1019,47 +1081,11 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
 	/* Create a TCP socket to listen for incoming connections from the
 	 * remote server. */
 
-	*listen_sock = open_tcp_socket(NULL, NIC_IP);
+	*listen_sock = open_tcp_socket(NULL, NIC_IP, options);
 	if (*listen_sock < 0) {
 		fprintf(stderr, "get_a_TCP_socket:  socket didn't open.\n");
 		return -1;
 	}
-
-  // Set the socket options based on the parameter passed in.
-  if (options.keepCount >= 0) {
-    if (setsockopt(*listen_sock, IPPROTO_TCP, TCP_KEEPCNT, SOCK_CAST &options.keepCount,
-        sizeof(options.keepCount)) < 0) {
-      perror("setsockopt(TCP_KEEPCNT) failed");
-    }
-  }
-  if (options.keepIdle >= 0) {
-#ifdef TCP_KEEPIDLE
-    if (setsockopt(*listen_sock, IPPROTO_TCP, TCP_KEEPIDLE, SOCK_CAST &options.keepIdle,
-        sizeof(options.keepIdle)) < 0) {
-      perror("setsockopt(TCP_KEEPIDLE) failed");
-    }
-#else
-    fprintf(stderr,"Setting KeepIdle not yet implemented on this architecture");
-#endif
-  }
-  if (options.keepInterval >= 0) {
-    if (setsockopt(*listen_sock, IPPROTO_TCP, TCP_KEEPINTVL, SOCK_CAST &options.keepInterval,
-        sizeof(options.keepInterval)) < 0) {
-      perror("setsockopt(TCP_KEEPINTVL) failed");
-    }
-  }
-#if !defined(_WIN32) && !defined(__APPLE__)
-  if (setsockopt(*listen_sock, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST &options.userTimeout,
-      sizeof(options.userTimeout)) < 0) {
-    perror("setsockopt(TCP_USER_TIMEOUT) failed");
-  }
-#endif
-  if (options.keepAlive) {
-    int enable = 1;
-    if (setsockopt(*listen_sock, SOL_SOCKET, SO_KEEPALIVE, SOCK_CAST &enable, sizeof(enable)) < 0) {
-      perror("setsockopt(SO_KEEPALIVE) failed");
-    }
-  }
   
   if (listen(*listen_sock, backlog)) {
 		fprintf(stderr, "get_a_TCP_socket: listen() failed.\n");
@@ -1129,7 +1155,7 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
 	struct hostent* host;      /* The host to connect to */
 
 	/* set up the socket */
-	*s = open_tcp_socket(NULL, NICaddress);
+	*s = open_tcp_socket(NULL, NICaddress, options);
 	if (*s < 0) {
 		fprintf(stderr, "connect_tcp_to: can't open socket\n");
 		return false;
@@ -1172,65 +1198,6 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
 			return false;
 		}
 	}
-
-  /* Set the socket options */
-#if !defined(_WIN32_WCE) && !defined(__ANDROID__)
-  {
-    // Set the socket options based on the parameter passed in.
-    if (options.keepCount >= 0) {
-      if (setsockopt(*s, IPPROTO_TCP, TCP_KEEPCNT, SOCK_CAST &options.keepCount,
-        sizeof(options.keepCount)) < 0) {
-        perror("setsockopt(TCP_KEEPCNT) failed");
-      }
-    }
-    if (options.keepIdle >= 0) {
-#ifdef TCP_KEEPIDLE
-      if (setsockopt(*s, IPPROTO_TCP, TCP_KEEPIDLE, SOCK_CAST &options.keepIdle,
-        sizeof(options.keepIdle)) < 0) {
-        perror("setsockopt(TCP_KEEPIDLE) failed");
-      }
-#else
-      fprintf(stderr,"Setting KeepIdle not yet implemented on this architecture");
-#endif
-    }
-    if (options.keepInterval >= 0) {
-      if (setsockopt(*s, IPPROTO_TCP, TCP_KEEPINTVL, SOCK_CAST &options.keepInterval,
-        sizeof(options.keepInterval)) < 0) {
-        perror("setsockopt(TCP_KEEPINTVL) failed");
-      }
-    }
-#if !defined(_WIN32) && !defined(__APPLE__)
-    if (setsockopt(*s, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST &options.userTimeout,
-      sizeof(options.userTimeout)) < 0) {
-      perror("setsockopt(TCP_USER_TIMEOUT) failed");
-    }
-#endif
-    if (options.keepAlive) {
-      int enable = 1;
-      if (setsockopt(*s, SOL_SOCKET, SO_KEEPALIVE, SOCK_CAST &enable, sizeof(enable)) < 0) {
-        perror("setsockopt(SO_KEEPALIVE) failed");
-      }
-    }
-
-    struct protoent* p_entry;
-    int nonzero = 1;
-
-    if ((p_entry = getprotobyname("TCP")) == NULL) {
-      fprintf(
-        stderr,
-        "connect_tcp_to: getprotobyname() failed.\n");
-      closeSocket(*s);
-      return false;
-    }
-
-    if (setsockopt(*s, p_entry->p_proto, TCP_NODELAY,
-      SOCK_CAST & nonzero, sizeof(nonzero)) == -1) {
-      perror("connect_tcp_to: setsockopt() failed");
-      closeSocket(*s);
-      return false;
-    }
-  }
-#endif
 
 #ifndef ACL_USE_WINSOCK_SOCKETS
 	client.sin_port = htons(port);
