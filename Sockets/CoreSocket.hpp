@@ -73,28 +73,6 @@ namespace acl { namespace CoreSocket {
   static const SOCKET BAD_SOCKET = INVALID_SOCKET;
 #endif
 
-/// @brief Options passed to TCP socket-creation routines.
-class TCPOptions {
-public:
-  // These are the defaults for an Aqueti connection.
-  bool keepAlive = true;
-  int keepCount = 4;
-  int keepIdle = 20;
-  int keepInterval = 5;
-  unsigned userTimeout = 15000;
-  bool reuseAddr = false;
-
-  // These are the system defaults
-  void UseSystemDefaults() {
-    keepAlive = false;
-    keepCount = -1;
-    keepIdle = -1;
-    keepInterval = -1;
-    userTimeout = 0;
-    reuseAddr = false;
-  }
-};
-
 /**
  *      This routine will write a block to a file descriptor.  It acts just
  * like the write() system call does on files, but it will keep sending to
@@ -229,13 +207,48 @@ SOCKET open_udp_socket(unsigned short* portno, const char* IPaddress,
   *           Null pointer or INADDR_ANY (a pointer to an empty string) uses the
   *           default interface.  A non-empty name will select a particular
   *           interface.
-  * @param [in] options Set of options for the socket that defaults to Aqueti
-  *           default values.
+  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
+  *           by another application?  This is useful when there is a zombie
+  *           server on a well-known port and you're trying to re-open that
+  *           port as its replacement.
   * @return BAD_SOCKET on failure and the socket identifier on success.
   */
 
 SOCKET open_tcp_socket(unsigned short* portno = NULL, const char* NIC_IP = NULL,
-  TCPOptions options = TCPOptions());
+  bool reuseAddr = false);
+
+/**
+  * @brief Sets options on the specified TCP socket.
+  *
+  * @param [in] s Socket to set the options on.
+  * @param [in] options Set of options for the socket that defaults to Aqueti
+  *           default values.
+  * @return False on failure to set any of the options, true on success.
+  */
+
+/// @brief Options passed to option-setting routine.
+class TCPOptions {
+public:
+  // These are the defaults for an Aqueti connection.
+  bool keepAlive = true;
+  int keepCount = 4;
+  int keepIdle = 20;
+  int keepInterval = 5;
+  unsigned userTimeout = 15000;
+  bool nodelay = true;
+
+  // These are the system defaults
+  void UseSystemDefaults() {
+    keepAlive = false;
+    keepCount = -1;
+    keepIdle = -1;
+    keepInterval = -1;
+    userTimeout = 0;
+    nodelay = false;
+  }
+};
+
+bool set_tcp_socket_options(SOCKET s, TCPOptions options = TCPOptions());
 
 /**
  * Create a UDP socket and connect it to a specified port.
@@ -308,13 +321,17 @@ int udp_request_lob_packet(
  * @param [out] listen_portnum The port that the socket is listening on.
  * @param [in] NIC_IP Name or dotted-decimal IP address of the network
  *          interface to use.  The default Null pointer means "listen on all".
+  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
+  *           by another application?  This is useful when there is a zombie
+  *           server on a well-known port and you're trying to re-open that
+  *           port as its replacement.
  * @param [in] backlog How many connections can be pending before new ones
  *          are rejected.
- * @param [in] options Options to set on the TCP socket.
  */
 
 int get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
-	const char* NIC_IP = NULL, int backlog = 1000, TCPOptions options = TCPOptions());
+	const char* NIC_IP = NULL, int backlog = 1000,
+  bool reuseAddr = false);
 
 /**
  *   This function returns the host IP address in string form.  For example,
@@ -338,10 +355,8 @@ int getmyIP(char* myIPchar, unsigned maxlen,
 /// @param [in] NICaddress Name of the network card to use, can be obtained
 ///             by calling getmyIP() or set to NULL to use the default network card.
 /// @param [out] s Pointer to be filled in with the socket that is connected.
-/// @param [in] options Options to set on the TCP socket.
 /// @return True on success, false on failure.
-bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *s,
-  TCPOptions options = TCPOptions());
+bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *s);
 
 /// @brief Close a socket.
 /// @param [in] Socket descriptor returned by open_socket() or one of the routines

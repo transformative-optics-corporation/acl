@@ -783,11 +783,9 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_udp_socket(unsigned short* portno,
 	return open_socket(SOCK_DGRAM, portno, IPaddress, reuseAddr);
 }
 
-acl::CoreSocket::SOCKET acl::CoreSocket::open_tcp_socket(unsigned short* portno,
-	const char* NIC_IP, TCPOptions options)
+bool acl::CoreSocket::set_tcp_socket_options(SOCKET s, TCPOptions options)
 {
-	SOCKET s = open_socket(SOCK_STREAM, portno, NIC_IP, options.reuseAddr);
-
+	bool ret = true;
 	/* Set the socket options */
 #if !defined(_WIN32_WCE) && !defined(__ANDROID__)
 	{
@@ -795,14 +793,16 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_tcp_socket(unsigned short* portno,
 		if (options.keepCount >= 0) {
 			if (setsockopt(s, IPPROTO_TCP, TCP_KEEPCNT, SOCK_CAST & options.keepCount,
 				sizeof(options.keepCount)) < 0) {
-				perror("setsockopt(TCP_KEEPCNT) failed");
+				perror("set_tcp_socket_options(): setsockopt(TCP_KEEPCNT) failed");
+				ret = false;
 			}
 		}
 		if (options.keepIdle >= 0) {
 #ifdef TCP_KEEPIDLE
 			if (setsockopt(s, IPPROTO_TCP, TCP_KEEPIDLE, SOCK_CAST & options.keepIdle,
 				sizeof(options.keepIdle)) < 0) {
-				perror("setsockopt(TCP_KEEPIDLE) failed");
+				perror("set_tcp_socket_options(): setsockopt(TCP_KEEPIDLE) failed");
+				ret = false;
 			}
 #else
 			fprintf(stderr, "Setting KeepIdle not yet implemented on this architecture");
@@ -811,43 +811,51 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_tcp_socket(unsigned short* portno,
 		if (options.keepInterval >= 0) {
 			if (setsockopt(s, IPPROTO_TCP, TCP_KEEPINTVL, SOCK_CAST & options.keepInterval,
 				sizeof(options.keepInterval)) < 0) {
-				perror("setsockopt(TCP_KEEPINTVL) failed");
+				perror("set_tcp_socket_options(): setsockopt(TCP_KEEPINTVL) failed");
+				ret = false;
 			}
 		}
 #if !defined(_WIN32) && !defined(__APPLE__)
 		if (setsockopt(s, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST & options.userTimeout,
 			sizeof(options.userTimeout)) < 0) {
-			perror("setsockopt(TCP_USER_TIMEOUT) failed");
+			perror("set_tcp_socket_options(): setsockopt(TCP_USER_TIMEOUT) failed");
+			ret = false;
 		}
 #endif
 		if (options.keepAlive) {
 			int enable = 1;
 			if (setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, SOCK_CAST & enable, sizeof(enable)) < 0) {
-				perror("setsockopt(SO_KEEPALIVE) failed");
+				perror("set_tcp_socket_options(): setsockopt(SO_KEEPALIVE) failed");
+				ret = false;
 			}
 		}
 
-		struct protoent* p_entry;
-		int nonzero = 1;
+		if (options.keepAlive) {
+			struct protoent* p_entry;
+			int nonzero = 1;
 
-		if ((p_entry = getprotobyname("TCP")) == NULL) {
-			fprintf(
-				stderr,
-				"connect_tcp_to: getprotobyname() failed.\n");
-			closeSocket(s);
-			return BAD_SOCKET;
-		}
-
-		if (setsockopt(s, p_entry->p_proto, TCP_NODELAY,
-			SOCK_CAST & nonzero, sizeof(nonzero)) == -1) {
-			perror("connect_tcp_to: setsockopt() failed");
-			closeSocket(s);
-			return BAD_SOCKET;
+			if ((p_entry = getprotobyname("TCP")) == NULL) {
+				fprintf(
+					stderr, "set_tcp_socket_options(): getprotobyname() failed.\n");
+				ret = false;
+			} else {
+				if (setsockopt(s, p_entry->p_proto, TCP_NODELAY,
+					SOCK_CAST & nonzero, sizeof(nonzero)) == -1) {
+					perror("set_tcp_socket_options(): setsockopt(TCP_NODELAY) failed");
+					ret = false;
+				}
+			}
 		}
 	}
 #endif
 
-	return s;
+	return ret;
+}
+
+acl::CoreSocket::SOCKET acl::CoreSocket::open_tcp_socket(unsigned short* portno,
+	const char* NIC_IP, bool reuseAddr)
+{
+	return open_socket(SOCK_STREAM, portno, NIC_IP, reuseAddr);
 }
 
 acl::CoreSocket::SOCKET acl::CoreSocket::connect_udp_port(const char* machineName, int remotePort,
@@ -1013,7 +1021,7 @@ int acl::CoreSocket::udp_request_lob_packet(
 }
 
 int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
-	const char* NIC_IP, int backlog, TCPOptions options)
+	const char* NIC_IP, int backlog, bool reuseAddr)
 {
 	struct sockaddr_in listen_name; /* The listen socket binding name */
 	int listen_namelen;
@@ -1023,7 +1031,7 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
 	/* Create a TCP socket to listen for incoming connections from the
 	 * remote server. */
 
-	*listen_sock = open_tcp_socket(NULL, NIC_IP, options);
+	*listen_sock = open_tcp_socket(NULL, NIC_IP, reuseAddr);
 	if (*listen_sock < 0) {
 		fprintf(stderr, "get_a_TCP_socket:  socket didn't open.\n");
 		return -1;
@@ -1054,39 +1062,19 @@ int acl::CoreSocket::poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
 		return -1;
 	}
 	if (ready) { /* Got one! */
-		/* Accept the connection from the remote machine and set TCP_NODELAY
-		* on the socket. */
+		/* Accept the connection from the remote machine. */
 		if ((*accept_sock = accept(listen_sock, 0, 0)) == -1) {
 			perror("poll_for_accept: accept() failed");
 			return -1;
 		}
-#if !defined(_WIN32_WCE) && !defined(__ANDROID__)
-		{     
-      struct protoent* p_entry;
-			int nonzero = 1;
-
-			if ((p_entry = getprotobyname("TCP")) == NULL) {
-				fprintf(stderr, "poll_for_accept: getprotobyname() failed.\n");
-				closeSocket(*accept_sock);
-				return (-1);
-			}
-
-			if (setsockopt(*accept_sock, p_entry->p_proto, TCP_NODELAY,
-				SOCK_CAST & nonzero, sizeof(nonzero)) == -1) {
-				perror("poll_for_accept: setsockopt() failed");
-				closeSocket(*accept_sock);
-				return (-1);
-			}
-		}
-#endif
 		return 1; // Got one!
 	}
 
-	return 0; // Nobody called
+	return 0; // Nobody trying to talk to us
 }
 
 bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
-	const char* NICaddress, SOCKET *s, TCPOptions options)
+	const char* NICaddress, SOCKET *s)
 {
 	if (s == nullptr) {
 		fprintf(stderr, "connect_tcp_to: Null socket pointer\n");
@@ -1097,7 +1085,7 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
 	struct hostent* host;      /* The host to connect to */
 
 	/* set up the socket */
-	*s = open_tcp_socket(NULL, NICaddress, options);
+	*s = open_tcp_socket(NULL, NICaddress);
 	if (*s < 0) {
 		fprintf(stderr, "connect_tcp_to: can't open socket\n");
 		return false;

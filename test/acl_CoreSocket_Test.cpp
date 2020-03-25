@@ -104,19 +104,23 @@ int main(int argc, const char* argv[])
       std::cerr << "Error opening stream socket on any port and interface" << std::endl;
       return 101;
     }
+    if (!set_tcp_socket_options(s)) {
+      std::cerr << "Error setting stream socket options on any port and interface" << std::endl;
+      return 102;
+    }
     if (0 != close_socket(s)) {
       std::cerr << "Error closing stream socket on any port and interface" << std::endl;
-      return 102;
+      return 103;
     }
 
     s = open_socket(SOCK_DGRAM, nullptr, nullptr);
     if (s == BAD_SOCKET) {
       std::cerr << "Error opening datagram socket on any port and interface" << std::endl;
-      return 103;
+      return 104;
     }
     if (0 != close_socket(s)) {
       std::cerr << "Error closing datagram socket on any port and interface" << std::endl;
-      return 104;
+      return 105;
     }
   }
 
@@ -129,19 +133,23 @@ int main(int argc, const char* argv[])
       std::cerr << "Error opening TCP socket on any port and interface" << std::endl;
       return 201;
     }
+    if (!set_tcp_socket_options(s)) {
+      std::cerr << "Error setting TCP socket options on any port and interface" << std::endl;
+      return 202;
+    }
     if (0 != close_socket(s)) {
       std::cerr << "Error closing TCP socket on any port and interface" << std::endl;
-      return 202;
+      return 203;
     }
 
     s = open_udp_socket(nullptr, nullptr);
     if (s == BAD_SOCKET) {
       std::cerr << "Error opening UDP socket on any port and interface" << std::endl;
-      return 203;
+      return 204;
     }
     if (0 != close_socket(s)) {
       std::cerr << "Error closing UDP socket on any port and interface" << std::endl;
-      return 204;
+      return 205;
     }
   }
 
@@ -162,10 +170,18 @@ int main(int argc, const char* argv[])
       std::cerr << "Error Opening read socket" << std::endl;
       return 302;
     }
+    if (!set_tcp_socket_options(rSock)) {
+      std::cerr << "Error setting TCP socket options on arbitrary port" << std::endl;
+      return 303;
+    }
     SOCKET wSock;
     if (1 != poll_for_accept(lSock, &wSock, 10.0)) {
       std::cerr << "Error Opening write socket" << std::endl;
-      return 303;
+      return 304;
+    }
+    if (!set_tcp_socket_options(wSock)) {
+      std::cerr << "Error setting TCP socket options on write socket" << std::endl;
+      return 305;
     }
 
     // Store the results of our threads, testing reading and writing.
@@ -176,25 +192,25 @@ int main(int argc, const char* argv[])
     rt.join();
     if (!writeWorked) {
       std::cerr << "Writing to socket failed" << std::endl;
-      return 304;
+      return 310;
     }
     if (!readWorked) {
       std::cerr << "Reading from socket failed" << std::endl;
-      return 305;
+      return 311;
     }
 
     // Done with the sockets
     if (0 != close_socket(wSock)) {
       std::cerr << "Error closing write socket on any port and interface" << std::endl;
-      return 306;
+      return 320;
     }
     if (0 != close_socket(lSock)) {
       std::cerr << "Error closing listening socket on any port and interface" << std::endl;
-      return 307;
+      return 321;
     }
     if (0 != close_socket(rSock)) {
       std::cerr << "Error closing read socket on any port and interface" << std::endl;
-      return 308;
+      return 322;
     }
   }
 
