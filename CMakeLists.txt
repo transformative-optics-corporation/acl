@@ -245,6 +245,7 @@ list( APPEND ATOOL_HEADERS
 )
 
 add_library( acl STATIC  
+   ${ATOOL_HEADERS}
    ${Timer_SRC}
    ${Thread_SRC}
    ${Mutex_SRC}
