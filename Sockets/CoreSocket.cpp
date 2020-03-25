@@ -1339,6 +1339,16 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
 
 int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 {
+#ifdef ACL_USE_WINSOCK_SOCKETS
+	// On Windows, we're still using select.
+	/// @todo Remove this branch when portable_poll() is implemented on Windows.
+
+	// Make sure our socket is valid to be used with select.
+	if (s >= FD_SETSIZE) {
+		perror("acl::CoreSocket::check_ready_to_read_timeout(): File descriptor too large");
+		return -1;
+	}
+
 	fd_set readfds, exceptfds;
 	struct timeval t;
 
@@ -1360,6 +1370,18 @@ int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 	}
 	// Not ready, we timed out.
 	return 0;
+#else
+	// On all systems that support it, use the polling interface.
+	struct pollfd poll_set = {0};
+	poll_set.fd = s;
+	poll_set.events = POLLIN;
+	int ret = portable_poll(&poll_set, 1, static_cast<int>(timeout*1000));
+	// If we got an event or exception, return -1
+	if (poll_set.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		return -1;
+	}
+	return ret;
+#endif
 }
 
 // From this we get the variable "ACL_big_endian" set to true if the machine we
