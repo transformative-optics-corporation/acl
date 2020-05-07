@@ -244,8 +244,8 @@ add_to_cache(K key, V value)
     auto it = keyMap.emplace(key, temp);
 
     if (!it.second) {
-        std::cerr << "LruCache::add_to_cache ERROR: Failed to add element to map." 
-                  << std::endl;
+        //std::cerr << "LruCache::add_to_cache ERROR: Failed to add element to map." 
+        //          << std::endl;
         return false;
     }
 
