@@ -223,7 +223,8 @@ int main(int argc, const char* argv[])
   {
     // Construct and connect our writing and reading sockets.  First we make a server socket
     // then connect a client to it.
-    unsigned short port;
+    // We set the port number to 0 to select "any port".
+    unsigned short port = 0;
     SOCKET sSock = open_udp_socket(&port, "localhost");
     if (sSock == BAD_SOCKET) {
       std::cerr << "Error Opening UDP socket on arbitrary port" << std::endl;
