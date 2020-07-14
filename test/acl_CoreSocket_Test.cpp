@@ -77,6 +77,9 @@ void TestWriteToSocket(bool& result, SOCKET s, int bytes, int chunkSize)
     }
     sofar += nextChunk;
     remaining -= nextChunk;
+
+    // Sleep very briefly to keep from flooding the receiver in UDP tests.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
   result = true;
@@ -153,7 +156,7 @@ int main(int argc, const char* argv[])
     }
   }
 
-  // Test opening each type of server socket and a remote for that type on different
+  // Test opening TCP server socket and a remote on different
   // threads and sending a bunch of data between them.  We use different threads to
   // avoid blocking when the network buffers get full.
   {
@@ -185,7 +188,7 @@ int main(int argc, const char* argv[])
     }
 
     // Store the results of our threads, testing reading and writing.
-    bool writeWorked, readWorked;
+    bool writeWorked = false, readWorked = false;
     std::thread wt(TestWriteToSocket, std::ref(writeWorked), wSock, 1000000, 65000);
     std::thread rt(TestReadFromSocket, std::ref(readWorked), rSock, 1000000, 65000);
     wt.join();
@@ -214,7 +217,51 @@ int main(int argc, const char* argv[])
     }
   }
 
-  /// @todo Test reuseAddr parameter to open_socket().
+  // Test opening UDP server socket and a remote on different
+  // threads and sending a bunch of data between them.  We use different threads to
+  // avoid blocking when the network buffers get full.
+  {
+    // Construct and connect our writing and reading sockets.  First we make a server socket
+    // then connect a client to it.
+    unsigned short port;
+    SOCKET sSock = open_udp_socket(&port, "localhost");
+    if (sSock == INVALID_SOCKET) {
+      std::cerr << "Error Opening UDP socket on arbitrary port" << std::endl;
+      return 401;
+    }
+    SOCKET rSock = connect_udp_port("localhost", port, nullptr);
+    if (rSock == INVALID_SOCKET) {
+      std::cerr << "Error Opening UDP remote socket" << std::endl;
+      return 402;
+    }
+
+    // Store the results of our threads, testing reading and writing.
+    bool writeWorked = false, readWorked = false;
+    std::thread wt(TestWriteToSocket, std::ref(writeWorked), rSock, 1000000, 65000);
+    std::thread rt(TestReadFromSocket, std::ref(readWorked), sSock, 1000000, 65000);
+    wt.join();
+    rt.join();
+    if (!writeWorked) {
+      std::cerr << "Writing to UDP socket failed" << std::endl;
+      return 410;
+    }
+    if (!readWorked) {
+      std::cerr << "Reading from UDP socket failed" << std::endl;
+      return 411;
+    }
+
+    // Done with the sockets
+    if (0 != close_socket(sSock)) {
+      std::cerr << "Error closing UDP server socket on any port and interface" << std::endl;
+      return 420;
+    }
+    if (0 != close_socket(rSock)) {
+      std::cerr << "Error closing UDP remote socket on any port and interface" << std::endl;
+      return 421;
+    }
+  }
+
+  /// @todo Test reuseAddr parameter to open_socket() on both TCP and UDP.
 
   /// @todo More tests
 
