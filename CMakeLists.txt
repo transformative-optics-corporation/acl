@@ -286,6 +286,17 @@ if(BUILD_TESTS)
   endforeach()
 endif()
 
+add_executable(testCoreSocket
+    test/acl_CoreSocket_test.cpp
+)
+target_link_libraries(testCoreSocket
+    acl
+)
+list(APPEND TARGET_LIST
+    testCoreSocket
+)
+
+
 #############################################
 #install library files
 # This sections initiates the build of the components in the TARGET_LIST. 

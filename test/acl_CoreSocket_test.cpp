@@ -83,13 +83,15 @@ void TestWriteToSocket(bool& result, SOCKET s, int bytes, int chunkSize)
   return;
 }
 
-int main(unsigned argc, const char* argv[])
+//int main(unsigned argc, const char* argv[])
+int main()
 {
+    SOCKET s;
   // Base port to use for socket testing
-  int SOCKET_BASE = 10000;
+  //int SOCKET_BASE = 10000;
 
   // Test closing a bad socket.
-  {
+  /*{
     SOCKET s = BAD_SOCKET;
     if (-100 != close_socket(s)) {
       std::cerr << "Error closing BAD_SOCKET" << std::endl;
@@ -134,23 +136,27 @@ int main(unsigned argc, const char* argv[])
     if (0 != close_socket(s)) {
       std::cerr << "Error closing TCP socket on any port and interface" << std::endl;
       return 202;
-    }
+    }*/
 
-    s = open_udp_socket(nullptr, nullptr);
+    unsigned short xyz = 8090;
+    unsigned short* abc = &xyz;
+    const char* opq = "10.0.0.71";
+    s = open_udp_socket(abc, opq, true);
     if (s == BAD_SOCKET) {
       std::cerr << "Error opening UDP socket on any port and interface" << std::endl;
       return 203;
     }
+    std::cout << "Now Closing the socket---------------------" << std::endl;
     if (0 != close_socket(s)) {
       std::cerr << "Error closing UDP socket on any port and interface" << std::endl;
       return 204;
     }
-  }
+  //}
 
   // Test opening each type of server socket and a remote for that type on different
   // threads and sending a bunch of data between them.  We use different threads to
   // avoid blocking when the network buffers get full.
-  {
+ /* {
     // Construct and connect our writing and reading sockets.  First we make a listening socket
     // then connect a read to it and accept the write on it.
     int port;
@@ -198,7 +204,7 @@ int main(unsigned argc, const char* argv[])
       std::cerr << "Error closing read socket on any port and interface" << std::endl;
       return 308;
     }
-  }
+  }*/
 
   /// @todo Test reusing socket parameter to open sockets.
 
