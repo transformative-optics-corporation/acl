@@ -225,12 +225,12 @@ int main(int argc, const char* argv[])
     // then connect a client to it.
     unsigned short port;
     SOCKET sSock = open_udp_socket(&port, "localhost");
-    if (sSock == INVALID_SOCKET) {
+    if (sSock == BAD_SOCKET) {
       std::cerr << "Error Opening UDP socket on arbitrary port" << std::endl;
       return 401;
     }
     SOCKET rSock = connect_udp_port("localhost", port, nullptr);
-    if (rSock == INVALID_SOCKET) {
+    if (rSock == BAD_SOCKET) {
       std::cerr << "Error Opening UDP remote socket" << std::endl;
       return 402;
     }
