@@ -10,7 +10,7 @@ project(acl VERSION "0.0.0.1" )
 #General build options
 option( BUILD_STATIC_LIB "Compile the library statically (off for dynamic)" ON )
 option( USE_SUPERBUILD "Build all dependencies in SUPERBUILD mode" ON)
-option( BUILD_TESTS "Build tests" OFF)
+option( BUILD_TESTS "Build tests" ON)
 
 # Doxygen support
 # add a target to generate API documentation with Doxygen
@@ -271,10 +271,11 @@ list(APPEND TARGET_LIST acl )
 # Build tests, if we're configured to do so.
 #############################################
 
-if(BUILD_TESTS)
+#if(BUILD_TESTS)
   enable_testing()
   set(TEST_APPS
     acl_CoreSocket_Test
+    acl_UDPClient_Test
   )
   foreach(APP ${TEST_APPS})
     add_executable(${APP} test/${APP}.cpp)
@@ -285,7 +286,7 @@ if(BUILD_TESTS)
     add_test(NAME ${APP} COMMAND ${APP})
     install(TARGETS ${APP} RUNTIME DESTINATION bin COMPONENT tests)
   endforeach()
-endif()
+#endif()
 
 #############################################
 #install library files
