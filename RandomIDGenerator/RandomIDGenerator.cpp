@@ -12,6 +12,7 @@
  *****************************************************************************/
 
 #include <random>
+#include <functional>
 #include "Timer.h"
 #include "RandomIDGenerator.hpp"
 
@@ -20,14 +21,12 @@ namespace acl {
 std::string RandomIDGenerator::genAlphanumericString(unsigned int len)
 {
     std::string alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    //std::uniform_int_distribution<int> d(0, alphabet.size() - 1);
-    //std::random_device rd;
+
     std::srand(acl::getUsecTime()); //use current time as seed for RNG
 
     std::string str;
     int pos;
     while (str.size() <= len) {
-        //pos = d(rd);
         int randomInt = std::rand();
         pos = randomInt % alphabet.length();
         str += alphabet.substr(pos,1);
@@ -39,14 +38,33 @@ std::string RandomIDGenerator::genAlphanumericString(unsigned int len)
 std::string RandomIDGenerator::genNumericString(unsigned int len)
 {
     std::string alphabet = "0123456789";
-    //std::uniform_int_distribution<int> d(0, alphabet.size() - 1);
-    //std::random_device rd;
+
     std::srand(acl::getUsecTime()); //use current time as seed for RNG
 
     std::string str;
     int pos;
     while (str.size() <= len) {
-        //pos = d(rd);
+        int randomInt = std::rand();
+        pos = randomInt % alphabet.length();
+        str += alphabet.substr(pos,1);
+    }
+
+    return str;
+}
+
+std::string RandomIDGenerator::genHexadecimalString(unsigned int len, std::string seed)
+{
+    std::string alphabet = "0123456789abcdef";
+
+    if (seed.empty()) {
+        std::srand(acl::getUsecTime()); //use current time as seed for RNG
+    } else {
+        std::srand(std::hash<std::string>{}(seed)); // use hash to convert provided seed to unsigned
+    }
+
+    std::string str;
+    int pos;
+    while (str.size() <= len) {
         int randomInt = std::rand();
         pos = randomInt % alphabet.length();
         str += alphabet.substr(pos,1);

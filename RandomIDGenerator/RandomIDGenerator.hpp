@@ -21,6 +21,7 @@ class RandomIDGenerator
     public:
         static std::string genAlphanumericString(unsigned int len=8);
         static std::string genNumericString(unsigned int len=8);
+        static std::string genHexadecimalString(unsigned int len=8, std::string seed="");
         static uint64_t genUint64();
 };
 
