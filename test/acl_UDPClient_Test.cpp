@@ -14,6 +14,9 @@ int main()
   timeout.tv_sec = 1;
   timeout.tv_usec = 0;
 
+  std::cout << "This test sends 6 bytes to port " << port_number
+    << " at " << ip_address << " and then reads 10 bytes." << std::endl;
+
   SOCKET s = connect_udp_port(ip_address, port_number);
   if (s == BAD_SOCKET){
     std::cerr << "Failed to open UDP socket!" << std::endl;
@@ -31,7 +34,7 @@ int main()
 
   int n = noint_block_read_timeout(s, read_buffer, 10, &timeout);
   if (n<=0) {
-    std::cerr <<"Error while reading! " << n << std::endl;
+    std::cerr <<"Error while reading: " << n << " bytes read" << std::endl;
     return -3;
   }else{
     std::cerr <<"Read Successful!" << std::endl;
