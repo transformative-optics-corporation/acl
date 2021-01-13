@@ -1,5 +1,4 @@
 #pragma once
-#include <cstddef>
 #include <cstdint>
 
 //=======================================================================
@@ -193,7 +192,7 @@ SOCKET open_socket(int type, unsigned short* portno, const char* IPaddress,
   * @return BAD_SOCKET on failure and the socket identifier on success.
   */
 
-SOCKET open_udp_socket(unsigned short* portno, const char* IPaddress,
+SOCKET open_udp_socket(unsigned short* portno = nullptr, const char* IPaddress = nullptr,
   bool reuseAddr = false);
 
 /**
@@ -318,19 +317,19 @@ int udp_request_lob_packet(
  * the socket and the port number of the socket that it obtained.
  * To select between multiple network interfaces, we can specify an IPaddress;
  * the default value is NULL, which uses the default NIC.
- * @param [out] listen_sock The socket that was opened.
  * @param [out] listen_portnum The port that the socket is listening on.
  * @param [in] NIC_IP Name or dotted-decimal IP address of the network
  *          interface to use.  The default Null pointer means "listen on all".
-  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
-  *           by another application?  This is useful when there is a zombie
-  *           server on a well-known port and you're trying to re-open that
-  *           port as its replacement.
+ * @param [in] reuseAddr Forcibly bind to a port even if it is already open
+ *           by another application?  This is useful when there is a zombie
+ *           server on a well-known port and you're trying to re-open that
+ *           port as its replacement.
  * @param [in] backlog How many connections can be pending before new ones
  *          are rejected.
+ * @return Opened socket on success, BAD_SOCKET on failure.
  */
 
-int get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
+acl::CoreSocket::SOCKET get_a_TCP_socket(int* listen_portnum,
 	const char* NIC_IP = NULL, int backlog = 1000,
   bool reuseAddr = false);
 
@@ -364,6 +363,12 @@ bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *
 ///         that call it; open_udp_socket() or open_tcp_socket().
 /// @return 0 on success, nonzero on failure, -100 if sock is BAD_SOCKET.
 int close_socket(SOCKET sock);
+
+/// @brief Disables sends or receives on a socket.  Does not need to be called.
+/// @param [in] Socket descriptor returned by open_socket() or one of the routines
+///         that call it; open_udp_socket() or open_tcp_socket().
+/// @return 0 on success, nonzero on failure, -100 if sock is BAD_SOCKET.
+int shutdown_socket(SOCKET sock);
 
 /// @brief Cause a TCP socket to accumulate data but not to send it.
 bool cork_tcp_socket(SOCKET sock);

@@ -1020,7 +1020,7 @@ int acl::CoreSocket::udp_request_lob_packet(
 	return 0;
 }
 
-int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
+acl::CoreSocket::SOCKET acl::CoreSocket::get_a_TCP_socket(int* listen_portnum,
 	const char* NIC_IP, int backlog, bool reuseAddr)
 {
 	struct sockaddr_in listen_name; /* The listen socket binding name */
@@ -1031,27 +1031,27 @@ int acl::CoreSocket::get_a_TCP_socket(SOCKET* listen_sock, int* listen_portnum,
 	/* Create a TCP socket to listen for incoming connections from the
 	 * remote server. */
 
-	*listen_sock = open_tcp_socket(NULL, NIC_IP, reuseAddr);
-	if (*listen_sock < 0) {
+	acl::CoreSocket::SOCKET ret = open_tcp_socket(NULL, NIC_IP, reuseAddr);
+	if (ret < 0) {
 		fprintf(stderr, "get_a_TCP_socket:  socket didn't open.\n");
-		return -1;
+		return acl::CoreSocket::BAD_SOCKET;
 	}
   
-  if (listen(*listen_sock, backlog)) {
+  if (listen(ret, backlog)) {
 		fprintf(stderr, "get_a_TCP_socket: listen() failed.\n");
-		closeSocket(*listen_sock);
-		return (-1);
+		closeSocket(ret);
+		return acl::CoreSocket::BAD_SOCKET;
 	}
 
-	if (getsockname(*listen_sock, (struct sockaddr*) & listen_name,
+	if (getsockname(ret, (struct sockaddr*) & listen_name,
 		GSN_CAST & listen_namelen)) {
 		fprintf(stderr, "get_a_TCP_socket: cannot get socket name.\n");
-		closeSocket(*listen_sock);
-		return (-1);
+		closeSocket(ret);
+		return acl::CoreSocket::BAD_SOCKET;
 	}
 
 	*listen_portnum = ntohs(listen_name.sin_port);
-	return 0;
+	return ret;
 }
 
 int acl::CoreSocket::poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
@@ -1168,6 +1168,18 @@ int acl::CoreSocket::close_socket(SOCKET sock)
 		return -100;
 	}
 	return closeSocket(sock);
+}
+
+int acl::CoreSocket::shutdown_socket(SOCKET sock)
+{
+	if (sock == BAD_SOCKET) {
+		return -100;
+	}
+#ifdef _WIN32
+	return shutdown(sock, SD_BOTH);
+#else
+	return shutdown(sock, SHUT_RDWR);
+#endif
 }
 
 bool acl::CoreSocket::cork_tcp_socket(SOCKET sock)
