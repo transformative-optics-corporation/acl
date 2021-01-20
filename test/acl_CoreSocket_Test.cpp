@@ -86,8 +86,65 @@ void TestWriteToSocket(bool& result, SOCKET s, int bytes, int chunkSize)
   return;
 }
 
+/// @brief Function to run the client side of a suite of client-server tests.
+/// @param [in] host Host to connect to
+/// @param [in] port Port to connect to
+/// @param [out] result true on success, false on failure.
+void TestClientSide(bool &result, std::string host, int port)
+{
+  /// @todo
+
+  result = true;
+  return;
+}
+
+/// @brief Function to run the server side of a suite of client-server tests.
+/// @param [in] port Port to listen on
+/// @param [out] result true on success, false on failure.
+void TestServerSide(bool &result, int port)
+{
+  /// @todo
+
+  result = true;
+  return;
+}
+
+
+void Usage(std::string name)
+{
+  std::cerr << "Usage: " << name << " [[--server PORT] | [--client HOST PORT]]" << std::endl;
+  std::cerr << "       --server: Run only the server tests on the specified port on all NICs" << std::endl;
+  std::cerr << "       --client: Run only the client tests and connect to  the specified port on the specified host name" << std::endl;
+  exit(1);
+}
+
 int main(int argc, const char* argv[])
 {
+  size_t realParams = 0;
+  bool doServer = true, doClient = true;
+  std::string hostName = "localhost";
+  int port = 12345;
+  for (int i = 1; i < argc; i++) {
+    if (std::string("--client").compare(argv[i]) == 0) {
+      doClient = false;
+      if (++i >= argc) { Usage(argv[0]); }
+      hostName = argv[i];
+      if (++i >= argc) { Usage(argv[0]); }
+      port = atoi(argv[i]);
+    } else if (std::string("--server").compare(argv[i]) == 0) {
+      doServer = false;
+      if (++i >= argc) { Usage(argv[0]); }
+      port = atoi(argv[i]);
+    } else if (argv[i][0] == '-') {
+      Usage(argv[0]);
+    } else switch (++realParams) {
+      case 1:
+        Usage(argv[0]);
+        break;
+      default:
+        Usage(argv[0]);
+    }
+  }
 
   // Test closing a bad socket.
   {
@@ -324,6 +381,28 @@ int main(int argc, const char* argv[])
       return 522;
     }
   }  
+
+  // Test running separate server and client tests that talk to each other over the
+  // network.  The default is to run both threads from this same process, but it can
+  // also be specified on the command line to run them as separate processes on the
+  // same or different computers.
+  {
+    // Store the results of our threads, testing client and server.
+    bool clientWorked = false, serverWorked = false;
+    std::thread ct(TestClientSide, std::ref(clientWorked), hostName, port);
+    std::thread st(TestServerSide, std::ref(serverWorked), port);
+    ct.join();
+    st.join();
+    if (!clientWorked) {
+      std::cerr << "Client code failed" << std::endl;
+      return 310;
+    }
+    if (!serverWorked) {
+      std::cerr << "Server code failed" << std::endl;
+      return 311;
+    }
+  }
+
 
   /// @todo Test reuseAddr parameter to open_socket() on both TCP and UDP.
 
