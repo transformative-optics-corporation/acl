@@ -7,6 +7,7 @@
 #include <math.h>
 #include <Timer.h>
 #include <climits>
+#include <iostream>
 #include <CoreSocket.hpp>
 #ifdef _WIN32
 #include "Ws2ipdef.h"
@@ -641,29 +642,17 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char buffer[], size
 			continue;
 		}
 
-#ifndef ACL_USE_WINSOCK_SOCKETS
-		ret = read(infile, buffer + sofar, length - sofar);
-		sofar += ret;
-
-		/* Ignore interrupted system calls - retry */
-		if ((ret == -1) && (socket_error == ACL_EINTR)) {
-			ret = 1;    /* So we go around the loop again */
-			sofar += 1; /* Restoring it from above -1 */
-		}
-#else
 		{
 			int nread = recv(infile, buffer + sofar,
-				static_cast<int>(length - sofar), 0);
+				static_cast<int>(length - sofar), MSG_DONTWAIT);
 			sofar += nread;
 			ret = nread;
 		}
-#endif
 
 	} while ((ret > 0) && (sofar < length));
 #ifndef ACL_USE_WINSOCK_SOCKETS
 	if (ret == -1) return (-1); /* Error during read */
 #endif
-	if (ret == 0) return (-1); /* EOF reached */
 
 	return static_cast<int>(sofar); /* All bytes read */
 }

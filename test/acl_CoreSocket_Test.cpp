@@ -262,6 +262,69 @@ int main(int argc, const char* argv[])
     }
   }
 
+  // Test opening TCP server socket and a remote and checking for partial reads
+  // with timeouts in the case where the server just sends part of the data and then
+  // leaves the connection open.
+  {
+    // Construct and connect our writing and reading sockets.  First we make a listening socket
+    // then connect a read to it and accept the write on it.
+    int port;
+    SOCKET lSock = get_a_TCP_socket (&port);
+    if (lSock == BAD_SOCKET) {
+      std::cerr << "Error Opening listening socket on arbitrary port" << std::endl;
+      return 501;
+    }
+    SOCKET rSock;
+    if (!connect_tcp_to("localhost", port, nullptr, &rSock)) {
+      std::cerr << "Error Opening read socket" << std::endl;
+      return 502;
+    }
+    if (!set_tcp_socket_options(rSock)) {
+      std::cerr << "Error setting TCP socket options on arbitrary port" << std::endl;
+      return 503;
+    }
+    SOCKET wSock;
+    if (1 != poll_for_accept(lSock, &wSock, 10.0)) {
+      std::cerr << "Error Opening write socket" << std::endl;
+      return 504;
+    }
+    if (!set_tcp_socket_options(wSock)) {
+      std::cerr << "Error setting TCP socket options on write socket" << std::endl;
+      return 505;
+    }
+
+    // Send a smaller amount of data than we'd like to receive and then verify that
+    // the read times out.
+    std::vector<char> buffer(256);
+    int halfSize = static_cast<int>(buffer.size()/2);
+    if (halfSize != noint_block_write(wSock, buffer.data(), halfSize)) {
+      std::cerr << "Error sending on write socket" << std::endl;
+      return 506;
+    }
+    std::cout << "Testing blocking read with timeout..." << std::endl;
+    struct timeval timeout = { 0, 100000 };
+    int ret = noint_block_read_timeout(rSock, buffer.data(), buffer.size(), &timeout);
+    if (ret != halfSize) {
+      std::cerr << "Error with partial read with timeout: " << ret << std::endl;
+      return 507;
+    }
+    std::cout << "... Completed" << std::endl;
+
+    // Done with the sockets
+    if (0 != close_socket(wSock)) {
+      std::cerr << "Error closing write socket on any port and interface" << std::endl;
+      return 520;
+    }
+    if (0 != close_socket(lSock)) {
+      std::cerr << "Error closing listening socket on any port and interface" << std::endl;
+      return 521;
+    }
+    if (0 != close_socket(rSock)) {
+      std::cerr << "Error closing read socket on any port and interface" << std::endl;
+      return 522;
+    }
+  }  
+
   /// @todo Test reuseAddr parameter to open_socket() on both TCP and UDP.
 
   /// @todo More tests
