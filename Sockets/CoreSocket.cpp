@@ -578,7 +578,7 @@ int acl::CoreSocket::noint_block_read(SOCKET insock, char* buffer, size_t length
 
 #endif /* ACL_USE_WINSOCK_SOCKETS */
 
-int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char buffer[], size_t length,
+int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_t length,
 	struct timeval* timeout)
 {
 	int ret; /* Return value from the read() */
@@ -644,7 +644,7 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char buffer[], size
 
 		{
 			int nread = recv(infile, buffer + sofar,
-				static_cast<int>(length - sofar), MSG_DONTWAIT);
+				static_cast<int>(length - sofar), 0);
 			sofar += nread;
 			ret = nread;
 		}

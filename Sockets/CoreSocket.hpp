@@ -25,6 +25,32 @@
 #include <poll.h>       // for poll()
 #endif
 
+#ifdef ACL_USE_WINSOCK_SOCKETS
+  // These are a pair of horrible hacks that instruct Windows include
+  // files to (1) not define min() and max() in a way that messes up
+  // standard-library calls to them, and (2) avoids pulling in a large
+  // number of Windows header files.  They are not used directly within
+  // the Sockets library, but rather within the Windows include files to
+  // change the way they behave.
+
+#ifndef NOMINMAX
+#define ACL_CORESOCKET_REPLACE_NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define ACL_CORESOCKET_REPLACE_WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h> // struct timeval is defined here
+#ifdef ACL_CORESOCKET_REPLACE_NOMINMAX
+#undef NOMINMAX
+#endif
+#ifdef ACL_CORESOCKET_REPLACE_WIN32_LEAN_AND_MEAN
+#undef WIN32_LEAN_AND_MEAN
+#endif
+
+#endif
+
 //=======================================================================
 // All externally visible symbols should be defined in the name space.
 
@@ -42,28 +68,6 @@ namespace acl { namespace CoreSocket {
   // We can't redefine it locally, so we have to switch to another name
   static const int BAD_SOCKET = -1;
 #else // winsock sockets
-	// These are a pair of horrible hacks that instruct Windows include
-	// files to (1) not define min() and max() in a way that messes up
-	// standard-library calls to them, and (2) avoids pulling in a large
-	// number of Windows header files.  They are not used directly within
-	// the Sockets library, but rather within the Windows include files to
-	// change the way they behave.
-
-	#ifndef NOMINMAX
-    #define ACL_CORESOCKET_REPLACE_NOMINMAX
-	  #define NOMINMAX
-	#endif
-	#ifndef WIN32_LEAN_AND_MEAN
-    #define ACL_CORESOCKET_REPLACE_WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-	#endif
-	#include <winsock2.h> // struct timeval is defined here
-  #ifdef ACL_CORESOCKET_REPLACE_NOMINMAX
-    #undef NOMINMAX
-  #endif
-  #ifdef ACL_CORESOCKET_REPLACE_WIN32_LEAN_AND_MEAN
-    #undef WIN32_LEAN_AND_MEAN
-  #endif
 
   // Bring the SOCKET type into our namespace, basing it on the root namespace one.
   typedef SOCKET SOCKET;
@@ -127,7 +131,7 @@ int noint_select(int width, fd_set* readfds, fd_set* writefds,
  * of characters read before timeout (in the case of a timeout).
  */
 
-int noint_block_read_timeout(SOCKET infile, char buffer[], size_t length,
+int noint_block_read_timeout(SOCKET infile, char* buffer, size_t length,
 	struct timeval* timeout);
 
 /**

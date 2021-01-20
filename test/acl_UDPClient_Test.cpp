@@ -1,5 +1,7 @@
 #include <iostream>
+#ifndef _WIN32
 #include <sys/time.h>
+#endif
 #include <CoreSocket.hpp>
 
 using namespace acl::CoreSocket;
