@@ -219,7 +219,7 @@ int main(int argc, const char* argv[])
   {
     // Construct and connect our writing and reading sockets.  First we make a listening socket
     // then connect a read to it and accept the write on it.
-    int port;
+    int port = 0;
     SOCKET lSock = get_a_TCP_socket (&port);
     if (lSock == BAD_SOCKET) {
       std::cerr << "Error Opening listening socket on arbitrary port" << std::endl;
@@ -325,7 +325,7 @@ int main(int argc, const char* argv[])
   {
     // Construct and connect our writing and reading sockets.  First we make a listening socket
     // then connect a read to it and accept the write on it.
-    int port;
+    int port = 0;
     SOCKET lSock = get_a_TCP_socket (&port);
     if (lSock == BAD_SOCKET) {
       std::cerr << "Error Opening listening socket on arbitrary port" << std::endl;

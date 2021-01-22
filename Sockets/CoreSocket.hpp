@@ -316,12 +316,13 @@ int udp_request_lob_packet(
  * @brief Get a TCP socket that is ready to accept connections.
  *
  * Ready to accept means that listen() has already been called on it.
- * It will get whatever socket is available from the system. It returns
- * 0 on success and -1 on failure. On success, it fills in the pointers to
+ * It can be asked for a specific port or to get whatever port is
+ * available from the system. On success, it fills in the pointers to
  * the socket and the port number of the socket that it obtained.
- * To select between multiple network interfaces, we can specify an IPaddress;
- * the default value is NULL, which uses the default NIC.
- * @param [out] listen_portnum The port that the socket is listening on.
+ * @param [inout] listen_portnum The port that the socket is listening on.
+ *          If this is a pointer to a nonzero value, the function will
+ *          attempt to open a socket on the specified port; if it is a
+ *          pointer to 0 then it will open any available port.
  * @param [in] NIC_IP Name or dotted-decimal IP address of the network
  *          interface to use.  The default Null pointer means "listen on all".
  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
