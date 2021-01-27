@@ -581,6 +581,10 @@ int acl::CoreSocket::noint_block_read(SOCKET insock, char* buffer, size_t length
 int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_t length,
 	struct timeval* timeout)
 {
+  if (infile == acl::CoreSocket::BAD_SOCKET) {
+    return -1;
+  }
+
 	int ret; /* Return value from the read() */
 	struct timeval timeout2;
 	struct timeval* timeout2ptr;
@@ -649,9 +653,17 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_
 			ret = nread;
 		}
 
+    // A closed socket will report that it has characters ready to
+    // read but when you go to read them there will not be any available.
+    // Check to see if that happened here.
+    if (ret == 0) {
+      ret = -1;
+      return -1;
+    }
+
 	} while ((ret > 0) && (sofar < length));
 #ifndef ACL_USE_WINSOCK_SOCKETS
-	if (ret == -1) return (-1); /* Error during read */
+	if (ret == -1) return -1; /* Error during read */
 #endif
 
 	return static_cast<int>(sofar); /* All bytes read */
@@ -1248,6 +1260,9 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
 
 int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 {
+  if (s == acl::CoreSocket::BAD_SOCKET) {
+    return -1;
+  }
 #ifdef ACL_USE_WINSOCK_SOCKETS
 	// On Windows, we're still using select.  It turns out that the Windows
 	// implementation of poll() does not work in some circumstances.
