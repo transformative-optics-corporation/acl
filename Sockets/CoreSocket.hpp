@@ -240,6 +240,7 @@ public:
   int keepInterval = 5;
   unsigned userTimeout = 15000;
   bool nodelay = true;
+  bool ignoreSIGPIPE = true;
 
   // These are the system defaults
   void UseSystemDefaults() {
@@ -249,6 +250,7 @@ public:
     keepInterval = -1;
     userTimeout = 0;
     nodelay = false;
+    ignoreSIGPIPE = false;
   }
 };
 

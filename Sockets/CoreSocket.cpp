@@ -836,6 +836,12 @@ bool acl::CoreSocket::set_tcp_socket_options(SOCKET s, TCPOptions options)
 			}
 		}
 	}
+
+  if (options.ignoreSIGPIPE) {
+#ifndef _WIN32
+    signal(SIGPIPE, SIG_IGN);
+#endif
+  }
 #endif
 
 	return ret;
