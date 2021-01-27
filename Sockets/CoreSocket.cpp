@@ -1018,7 +1018,11 @@ int acl::CoreSocket::udp_request_lob_packet(
 acl::CoreSocket::SOCKET acl::CoreSocket::get_a_TCP_socket(int* listen_portnum,
 	const char* NIC_IP, int backlog, bool reuseAddr)
 {
-	struct sockaddr_in listen_name; /* The listen socket binding name */
+  if (listen_portnum == nullptr) {
+    fprintf(stderr, "get_a_TCP_socket: Null port pointer.\n");
+    return acl::CoreSocket::BAD_SOCKET;
+  }
+  struct sockaddr_in listen_name; /* The listen socket binding name */
 	int listen_namelen;
 
 	listen_namelen = sizeof(listen_name);
@@ -1026,7 +1030,8 @@ acl::CoreSocket::SOCKET acl::CoreSocket::get_a_TCP_socket(int* listen_portnum,
 	/* Create a TCP socket to listen for incoming connections from the
 	 * remote server. */
 
-	acl::CoreSocket::SOCKET ret = open_tcp_socket(NULL, NIC_IP, reuseAddr);
+  unsigned short port = static_cast<unsigned short>(*listen_portnum);
+	acl::CoreSocket::SOCKET ret = open_tcp_socket(&port, NIC_IP, reuseAddr);
 	if (ret < 0) {
 		fprintf(stderr, "get_a_TCP_socket:  socket didn't open.\n");
 		return acl::CoreSocket::BAD_SOCKET;
