@@ -5,6 +5,10 @@
 
 using namespace acl::CoreSocket;
 
+/// @brief How many socket connections to try
+static size_t g_numSockets = 100;
+static int g_packetSize = 100;
+
 /// @brief Function to read and verify the specified number of bytes from a socket.
 ///
 /// This will ensure that it can read the requested number of bytes from the socket
@@ -90,26 +94,96 @@ void TestWriteToSocket(int& result, SOCKET s, int bytes, int chunkSize)
 /// @brief Function to run the client side of a suite of client-server tests.
 /// @param [in] host Host to connect to
 /// @param [in] port Port to connect to
-/// @param [out] result true on success, false on failure.
-void TestClientSide(bool &result, std::string host, int port)
+/// @param [out] result 0 on success, unique error code on failure.
+void TestClientSide(int &result, std::string host, int port)
 {
+  //=======================================================================================
+  // Test opening g_numSockets simultaneous connections and then writing a single
+  // g_packetSize-byte packet to each connection.
+  std::vector<acl::CoreSocket::SOCKET> socks;
+  for (size_t i = 0; i < g_numSockets; i++) {
+    acl::CoreSocket::SOCKET sock;
+    if (!connect_tcp_to(host.c_str(), port, nullptr, &sock)) {
+      std::cerr << "TestClientSide: Error Opening read socket " << i << std::endl;
+      result = 1;
+      return;
+    }
+    if (!set_tcp_socket_options(sock)) {
+      std::cerr << "TestClientSide: Error setting TCP socket options on socket " << i << std::endl;
+      result = 2;
+      return;
+    }
+    socks.push_back(sock);
+  }
+  int ret;
+  for (size_t i = 0; i < g_numSockets; i++) {
+    TestWriteToSocket(ret, socks[i], g_packetSize, g_packetSize);
+    if (ret != g_packetSize) {
+      std::cerr << "TestClientSide: Error writing to socket " << i << std::endl;
+      result = 3;
+    }
+  }
+  for (size_t i = 0; i < g_numSockets; i++) {
+    if (0 != acl::CoreSocket::close_socket(socks[i])) {
+      std::cerr << "TestClientSide: Error closing socket " << i << std::endl;
+      result = 4;
+    }
+  }
+
   /// @todo
 
-  result = true;
+  result = 0;
   return;
 }
 
 /// @brief Function to run the server side of a suite of client-server tests.
 /// @param [in] port Port to listen on
-/// @param [out] result true on success, false on failure.
-void TestServerSide(bool &result, int port)
+/// @param [out] result 0 on success, unique error code on failure.
+void TestServerSide(int &result, int port)
 {
-  // Test accepting 100 connection requests and reading a single
-  // 100-byte packet from each connection.
+  //=======================================================================================
+  // Test accepting g_numSockets simultaneous connection requests and reading a single
+  // g_packetSize-byte packet from each connection.
+  int myPort = port;
+  SOCKET lSock = get_a_TCP_socket(&myPort);
+  if (lSock == BAD_SOCKET) {
+    std::cerr << "TestServerSide: Error Opening listening socket on arbitrary port" << std::endl;
+    result = 1;
+    return;
+  }
+  std::vector<acl::CoreSocket::SOCKET> socks;
+  for (size_t i = 0; i < g_numSockets; i++) {
+    SOCKET rSock;
+    if (1 != poll_for_accept(lSock, &rSock, 10.0)) {
+      std::cerr << "TestServerSide: Error Opening accept socket " << i << std::endl;
+      result = 2;
+      return;
+    }
+    if (!set_tcp_socket_options(rSock)) {
+      std::cerr << "TestServerSide: Error setting TCP socket options on accept socket " << i << std::endl;
+      result = 3;
+      return;
+    }
+    socks.push_back(rSock);
+  }
+  int ret;
+  for (size_t i = 0; i < g_numSockets; i++) {
+    TestReadFromSocket(ret, socks[i], g_packetSize, g_packetSize);
+    if (ret != g_packetSize) {
+      std::cerr << "TestServerSide: Error reading from socket " << i << std::endl;
+      result = 4;
+    }
+  }
+  for (size_t i = 0; i < g_numSockets; i++) {
+    if (0 != acl::CoreSocket::close_socket(socks[i])) {
+      std::cerr << "TestServerSide: Error closing socket " << i << std::endl;
+      result = 5;
+    }
+  }
 
   /// @todo
 
-  result = true;
+  result = 0;
   return;
 }
 
@@ -392,21 +466,31 @@ int main(int argc, const char* argv[])
   // network.  The default is to run both threads from this same process, but it can
   // also be specified on the command line to run them as separate processes on the
   // same or different computers.
-  {
-    // Store the results of our threads, testing client and server.
-    bool clientWorked = false, serverWorked = false;
-    std::thread ct(TestClientSide, std::ref(clientWorked), hostName, port);
-    std::thread st(TestServerSide, std::ref(serverWorked), port);
-    ct.join();
+  std::thread st, ct;
+  int clientWorked = -1, serverWorked = -1;
+  if (doServer) {
+    std::cout << "Testing accepting " << g_numSockets << " sockets..." << std::endl;
+    st = std::thread(TestServerSide, std::ref(serverWorked), port);
+  }
+  if (doClient) {
+    std::cout << "Testing connecting " << g_numSockets << " sockets..." << std::endl;
+    ct = std::thread(TestClientSide, std::ref(clientWorked), hostName, port);
+  }
+  if (doServer) {
     st.join();
-    if (!clientWorked) {
-      std::cerr << "Client code failed" << std::endl;
-      return 310;
-    }
-    if (!serverWorked) {
-      std::cerr << "Server code failed" << std::endl;
+    if (serverWorked != 0) {
+      std::cerr << "Server code failed with code " << serverWorked << std::endl;
       return 311;
     }
+    std::cout << "...Server success" << std::endl;
+  }
+  if (doClient) {
+    ct.join();
+    if (clientWorked != 0) {
+      std::cerr << "Client code failed with code " << clientWorked << std::endl;
+      return 310;
+    }
+    std::cout << "...Client success" << std::endl;
   }
 
 
