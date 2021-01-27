@@ -12,8 +12,9 @@ using namespace acl::CoreSocket;
 /// @param [in] s Socket to read from
 /// @param [in] bytes Total number of bytes to read
 /// @param [in] chunkSize Size of chunks to read from the socket.
-/// @param [out] result true on success, false on failure.
-void TestReadFromSocket(bool &result, SOCKET s, int bytes, int chunkSize)
+/// @param [out] result number of bytes read, -1 if there is a mismatch in the
+///           data compared to what was expected.
+void TestReadFromSocket(int &result, SOCKET s, int bytes, int chunkSize)
 {
   int sofar = 0;
   int remaining = bytes;
@@ -27,7 +28,7 @@ void TestReadFromSocket(bool &result, SOCKET s, int bytes, int chunkSize)
     }
 
     if (nextChunk != noint_block_read(s, &buf[sofar], nextChunk)) {
-      result = false;
+      result = sofar;
       return;
     }
     sofar += nextChunk;
@@ -37,12 +38,12 @@ void TestReadFromSocket(bool &result, SOCKET s, int bytes, int chunkSize)
   // Check the values
   for (int i = 0; i < bytes; i++) {
     if (buf[i] != (i % 128)) {
-      result = false;
+      result = -1;
       return;
     }
   }
 
-  result = true;
+  result = sofar;
   return;
 }
 
@@ -52,8 +53,8 @@ void TestReadFromSocket(bool &result, SOCKET s, int bytes, int chunkSize)
 /// @param [in] s Socket to write to
 /// @param [in] bytes Total number of bytes to write
 /// @param [in] chunkSize Size of chunks to write to the socket.
-/// @param [out] result true on success, false on failure.
-void TestWriteToSocket(bool& result, SOCKET s, int bytes, int chunkSize)
+/// @param [out] result Number of bytes successfully written.
+void TestWriteToSocket(int& result, SOCKET s, int bytes, int chunkSize)
 {
   int sofar = 0;
   int remaining = bytes;
@@ -72,7 +73,7 @@ void TestWriteToSocket(bool& result, SOCKET s, int bytes, int chunkSize)
     }
 
     if (nextChunk != noint_block_write(s, &buf[sofar], nextChunk)) {
-      result = false;
+      result = sofar;
       return;
     }
     sofar += nextChunk;
@@ -82,7 +83,7 @@ void TestWriteToSocket(bool& result, SOCKET s, int bytes, int chunkSize)
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
-  result = true;
+  result = sofar;
   return;
 }
 
@@ -103,6 +104,9 @@ void TestClientSide(bool &result, std::string host, int port)
 /// @param [out] result true on success, false on failure.
 void TestServerSide(bool &result, int port)
 {
+  // Test accepting 100 connection requests and reading a single
+  // 100-byte packet from each connection.
+
   /// @todo
 
   result = true;
@@ -245,16 +249,17 @@ int main(int argc, const char* argv[])
     }
 
     // Store the results of our threads, testing reading and writing.
-    bool writeWorked = false, readWorked = false;
-    std::thread wt(TestWriteToSocket, std::ref(writeWorked), wSock, 1000000, 65000);
-    std::thread rt(TestReadFromSocket, std::ref(readWorked), rSock, 1000000, 65000);
+    int NUM_BYTES = 1000000;
+    int writeBytes = 0, readBytes = 0;
+    std::thread wt(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 65000);
+    std::thread rt(TestReadFromSocket, std::ref(readBytes), rSock, NUM_BYTES, 65000);
     wt.join();
     rt.join();
-    if (!writeWorked) {
+    if (writeBytes != NUM_BYTES) {
       std::cerr << "Writing to socket failed" << std::endl;
       return 310;
     }
-    if (!readWorked) {
+    if (readBytes != NUM_BYTES) {
       std::cerr << "Reading from socket failed" << std::endl;
       return 311;
     }
@@ -294,16 +299,17 @@ int main(int argc, const char* argv[])
     }
 
     // Store the results of our threads, testing reading and writing.
-    bool writeWorked = false, readWorked = false;
-    std::thread wt(TestWriteToSocket, std::ref(writeWorked), rSock, 1000000, 65000);
-    std::thread rt(TestReadFromSocket, std::ref(readWorked), sSock, 1000000, 65000);
+    int NUM_BYTES = 1000000;
+    int writeBytes = 0, readBytes = 0;
+    std::thread wt(TestWriteToSocket, std::ref(writeBytes), rSock, NUM_BYTES, 65000);
+    std::thread rt(TestReadFromSocket, std::ref(readBytes), sSock, NUM_BYTES, 65000);
     wt.join();
     rt.join();
-    if (!writeWorked) {
+    if (writeBytes != NUM_BYTES) {
       std::cerr << "Writing to UDP socket failed" << std::endl;
       return 410;
     }
-    if (!readWorked) {
+    if (readBytes != NUM_BYTES) {
       std::cerr << "Reading from UDP socket failed" << std::endl;
       return 411;
     }
