@@ -657,8 +657,7 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_
     // read but when you go to read them there will not be any available.
     // Check to see if that happened here.
     if (ret == 0) {
-      ret = -1;
-      return -1;
+      return static_cast<int>(sofar);
     }
 
 	} while ((ret > 0) && (sofar < length));

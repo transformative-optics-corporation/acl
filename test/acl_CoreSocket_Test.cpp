@@ -92,96 +92,203 @@ void TestWriteToSocket(int& result, SOCKET s, int bytes, int chunkSize)
 }
 
 /// @brief Function to run the client side of a suite of client-server tests.
+///
+/// This function needs to be modified to maintain consistency with TestServerSide()
 /// @param [in] host Host to connect to
 /// @param [in] port Port to connect to
 /// @param [out] result 0 on success, unique error code on failure.
 void TestClientSide(int &result, std::string host, int port)
 {
-  //=======================================================================================
-  // Test opening g_numSockets simultaneous connections and then writing a single
-  // g_packetSize-byte packet to each connection.
-  std::vector<acl::CoreSocket::SOCKET> socks;
-  for (size_t i = 0; i < g_numSockets; i++) {
-    acl::CoreSocket::SOCKET sock;
-    if (!connect_tcp_to(host.c_str(), port, nullptr, &sock)) {
-      std::cerr << "TestClientSide: Error Opening read socket " << i << std::endl;
-      result = 1;
-      return;
+  {
+    //=======================================================================================
+    // Test opening g_numSockets simultaneous connections and then writing a single
+    // g_packetSize-byte packet to each connection.
+    std::vector<acl::CoreSocket::SOCKET> socks;
+    for (size_t i = 0; i < g_numSockets; i++) {
+      acl::CoreSocket::SOCKET sock;
+      if (!connect_tcp_to(host.c_str(), port, nullptr, &sock)) {
+        std::cerr << "TestClientSide: Error Opening write socket " << i << std::endl;
+        result = 1;
+        return;
+      }
+      if (!set_tcp_socket_options(sock)) {
+        std::cerr << "TestClientSide: Error setting TCP socket options on socket " << i << std::endl;
+        result = 2;
+        return;
+      }
+      socks.push_back(sock);
     }
-    if (!set_tcp_socket_options(sock)) {
-      std::cerr << "TestClientSide: Error setting TCP socket options on socket " << i << std::endl;
-      result = 2;
-      return;
+    int ret;
+    for (size_t i = 0; i < g_numSockets; i++) {
+      TestWriteToSocket(ret, socks[i], g_packetSize, g_packetSize);
+      if (ret != g_packetSize) {
+        std::cerr << "TestClientSide: Error writing to socket " << i << std::endl;
+        result = 3;
+      }
     }
-    socks.push_back(sock);
-  }
-  int ret;
-  for (size_t i = 0; i < g_numSockets; i++) {
-    TestWriteToSocket(ret, socks[i], g_packetSize, g_packetSize);
-    if (ret != g_packetSize) {
-      std::cerr << "TestClientSide: Error writing to socket " << i << std::endl;
-      result = 3;
-    }
-  }
-  for (size_t i = 0; i < g_numSockets; i++) {
-    if (0 != acl::CoreSocket::close_socket(socks[i])) {
-      std::cerr << "TestClientSide: Error closing socket " << i << std::endl;
-      result = 4;
+    for (size_t i = 0; i < g_numSockets; i++) {
+      if (0 != acl::CoreSocket::close_socket(socks[i])) {
+        std::cerr << "TestClientSide: Error closing socket " << i << std::endl;
+        result = 4;
+      }
     }
   }
 
-  /// @todo
+  {
+    //=======================================================================================
+    // Test making a connection and then trying to write fewer bytes than are sent before
+    // closing the connection.  Try once with the far end using a non-timeout read and a second time
+    // using a timeout read.  Then try two read requests where the far side closes the socket after
+    // partial sends.
+
+    for (size_t i = 0; i < 2; i++) {
+      // Sleep to avoid a race condition on the socket being created
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      acl::CoreSocket::SOCKET sock;
+      if (!connect_tcp_to(host.c_str(), port, nullptr, &sock)) {
+        std::cerr << "TestClientSide: Error Opening write socket partial read" << std::endl;
+        result = 10;
+        return;
+      }
+      if (!set_tcp_socket_options(sock)) {
+        std::cerr << "TestClientSide: Error setting TCP socket options on socket partial read" << std::endl;
+        result = 11;
+        return;
+      }
+      char buf[1000];
+      if (!noint_block_write(sock, buf, 500)) {
+        std::cerr << "TestClientSide: Error writing for partial read" << std::endl;
+        result = 12;
+        return;
+      }
+      if (0 != close_socket(sock)) {
+        std::cerr << "TestClientSide: Error closing writing socket for partial read" << std::endl;
+        result = 19;
+      }
+    }
+
+    /// @todo
+  }
 
   result = 0;
   return;
 }
 
 /// @brief Function to run the server side of a suite of client-server tests.
+///
+/// This function needs to be modified to maintain consistency with TestClientSide()
 /// @param [in] port Port to listen on
 /// @param [out] result 0 on success, unique error code on failure.
 void TestServerSide(int &result, int port)
 {
-  //=======================================================================================
-  // Test accepting g_numSockets simultaneous connection requests and reading a single
-  // g_packetSize-byte packet from each connection.
-  int myPort = port;
-  SOCKET lSock = get_a_TCP_socket(&myPort);
-  if (lSock == BAD_SOCKET) {
-    std::cerr << "TestServerSide: Error Opening listening socket on arbitrary port" << std::endl;
-    result = 1;
-    return;
-  }
-  std::vector<acl::CoreSocket::SOCKET> socks;
-  for (size_t i = 0; i < g_numSockets; i++) {
-    SOCKET rSock;
-    if (1 != poll_for_accept(lSock, &rSock, 10.0)) {
-      std::cerr << "TestServerSide: Error Opening accept socket " << i << std::endl;
-      result = 2;
+  {
+    //=======================================================================================
+    // Test accepting g_numSockets simultaneous connection requests and reading a single
+    // g_packetSize-byte packet from each connection.
+    int myPort = port;
+    SOCKET lSock = get_a_TCP_socket(&myPort, nullptr, 1000, true);
+    if (lSock == BAD_SOCKET) {
+      std::cerr << "TestServerSide: Error Opening listening socket on a specific port" << std::endl;
+      result = 1;
       return;
     }
-    if (!set_tcp_socket_options(rSock)) {
-      std::cerr << "TestServerSide: Error setting TCP socket options on accept socket " << i << std::endl;
-      result = 3;
-      return;
+    std::vector<acl::CoreSocket::SOCKET> socks;
+    for (size_t i = 0; i < g_numSockets; i++) {
+      SOCKET rSock;
+      if (1 != poll_for_accept(lSock, &rSock, 10.0)) {
+        std::cerr << "TestServerSide: Error Opening accept socket " << i << std::endl;
+        result = 2;
+        return;
+      }
+      if (!set_tcp_socket_options(rSock)) {
+        std::cerr << "TestServerSide: Error setting TCP socket options on accept socket " << i << std::endl;
+        result = 3;
+        return;
+      }
+      socks.push_back(rSock);
     }
-    socks.push_back(rSock);
-  }
-  int ret;
-  for (size_t i = 0; i < g_numSockets; i++) {
-    TestReadFromSocket(ret, socks[i], g_packetSize, g_packetSize);
-    if (ret != g_packetSize) {
-      std::cerr << "TestServerSide: Error reading from socket " << i << std::endl;
-      result = 4;
+    int ret;
+    for (size_t i = 0; i < g_numSockets; i++) {
+      TestReadFromSocket(ret, socks[i], g_packetSize, g_packetSize);
+      if (ret != g_packetSize) {
+        std::cerr << "TestServerSide: Error reading from socket " << i << std::endl;
+        result = 4;
+      }
     }
-  }
-  for (size_t i = 0; i < g_numSockets; i++) {
-    if (0 != acl::CoreSocket::close_socket(socks[i])) {
-      std::cerr << "TestServerSide: Error closing socket " << i << std::endl;
-      result = 5;
+    for (size_t i = 0; i < g_numSockets; i++) {
+      if (0 != acl::CoreSocket::close_socket(socks[i])) {
+        std::cerr << "TestServerSide: Error closing socket " << i << std::endl;
+        result = 5;
+      }
+    }
+    if (0 != close_socket(lSock)) {
+      std::cerr << "TestServerSide: Error closing listening socket" << std::endl;
+      result = 6;
     }
   }
 
-  /// @todo
+  {
+    //=======================================================================================
+    // Test accepting a connection and then trying to read more bytes than are sent before
+    // the far end closes its connection.  Try once using a non-timeout read and a second time
+    // using a timeout read.  Then try two write requests where we close the socket after
+    // partial sends.
+    int myPort = port;
+    SOCKET lSock = get_a_TCP_socket(&myPort, nullptr, 1000, true);
+    SOCKET rSock; ///< used for the accepted read connection socket
+    char buf[1000];
+    if (lSock == BAD_SOCKET) {
+      std::cerr << "TestServerSide: Error Opening listening socket on a specific port for partial read" << std::endl;
+      result = 10;
+      return;
+    }
+
+    // First connection request for partial read
+    if (1 != poll_for_accept(lSock, &rSock, 10.0)) {
+      std::cerr << "TestServerSide: Error Opening accept socket for partial read" << std::endl;
+      result = 11;
+      return;
+    }
+    if (!set_tcp_socket_options(rSock)) {
+      std::cerr << "TestServerSide: Error setting TCP socket options on accept socket for partial read" << std::endl;
+      result = 12;
+      return;
+    }
+    int ret = noint_block_read(rSock, buf, 1000);
+    if (ret != 500) {
+      std::cerr << "TestServerSide: Partial read expected " << 1000 << ", got " << ret << std::endl;
+      result = 13;
+      return;
+    }
+
+    // Second connection request for partial read with timeout
+    if (1 != poll_for_accept(lSock, &rSock, 10.0)) {
+      std::cerr << "TestServerSide: Error Opening accept socket for partial read timeout" << std::endl;
+      result = 20;
+      return;
+    }
+    if (!set_tcp_socket_options(rSock)) {
+      std::cerr << "TestServerSide: Error setting TCP socket options on accept socket for partial read timeout" << std::endl;
+      result = 21;
+      return;
+    }
+    struct timeval tensec = { 10, 0 };
+    ret = noint_block_read_timeout(rSock, buf, 1000, &tensec);
+    if (ret != 500) {
+      std::cerr << "TestServerSide: Partial read timeout expected " << 1000 << ", got " << ret << std::endl;
+      result = 22;
+      return;
+    }
+
+    /// @todo
+
+    // Done
+    if (0 != close_socket(lSock)) {
+      std::cerr << "TestServerSide: Error closing listening socket for partial read/write tests" << std::endl;
+      result = 99;
+    }
+
+  }
 
   result = 0;
   return;

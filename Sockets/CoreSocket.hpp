@@ -328,9 +328,9 @@ int udp_request_lob_packet(
  * @param [in] NIC_IP Name or dotted-decimal IP address of the network
  *          interface to use.  The default Null pointer means "listen on all".
  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
- *           by another application?  This is useful when there is a zombie
- *           server on a well-known port and you're trying to re-open that
- *           port as its replacement.
+ *           (but not bound for accept) by another application.  This is useful
+ *           when there is a zombie server on a well-known port and you're
+ *           trying to re-open that port as its replacement.
  * @param [in] backlog How many connections can be pending before new ones
  *          are rejected.
  * @return Opened socket on success, BAD_SOCKET on failure.
