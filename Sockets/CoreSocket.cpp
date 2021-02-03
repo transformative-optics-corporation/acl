@@ -9,7 +9,7 @@
 #include <climits>
 #include <iostream>
 #include <CoreSocket.hpp>
-#ifdef _WIN32
+#ifdef ACL_USE_WINSOCK_SOCKETS
 #include "Ws2ipdef.h"
 #endif
 
@@ -815,7 +815,7 @@ bool acl::CoreSocket::set_tcp_socket_options(SOCKET s, TCPOptions options)
 				ret = false;
 			}
 		}
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(ACL_USE_WINSOCK_SOCKETS) && !defined(__APPLE__)
 		if (setsockopt(s, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST & options.userTimeout,
 			sizeof(options.userTimeout)) < 0) {
 			perror("set_tcp_socket_options(): setsockopt(TCP_USER_TIMEOUT) failed");
@@ -849,7 +849,7 @@ bool acl::CoreSocket::set_tcp_socket_options(SOCKET s, TCPOptions options)
 	}
 
   if (options.ignoreSIGPIPE) {
-#ifndef _WIN32
+#ifndef ACL_USE_WINSOCK_SOCKETS
     signal(SIGPIPE, SIG_IGN);
 #endif
   }
@@ -1129,7 +1129,7 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
 		}
 		else {
 
-#if !defined(hpux) && !defined(__hpux) && !defined(_WIN32) && !defined(sparc)
+#if !defined(hpux) && !defined(__hpux) && !defined(ACL_USE_WINSOCK_SOCKETS) && !defined(sparc)
 			herror("gethostbyname error:");
 #else
 			perror("gethostbyname error:");
@@ -1186,7 +1186,7 @@ int acl::CoreSocket::shutdown_socket(SOCKET sock)
 	if (sock == BAD_SOCKET) {
 		return -100;
 	}
-#ifdef _WIN32
+#ifdef ACL_USE_WINSOCK_SOCKETS
 	return shutdown(sock, SD_BOTH);
 #else
 	return shutdown(sock, SHUT_RDWR);
@@ -1199,7 +1199,7 @@ bool acl::CoreSocket::cork_tcp_socket(SOCKET sock)
     fprintf(stderr, "cork_tcp_socket(): Bad socket\n");
     return false;
   }
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(ACL_USE_WINSOCK_SOCKETS) || defined(__APPLE__)
   // We don't have an cork function on Windows, so we disable TCP_NODELAY
   // to try and convince it to keep data in buffers for awhile.
   struct protoent* p_entry;
@@ -1230,7 +1230,7 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
     fprintf(stderr, "uncork_tcp_socket(): Bad socket\n");
     return false;
   }
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(ACL_USE_WINSOCK_SOCKETS) || defined(__APPLE__)
   // We don't have an uncork function on Windows, so we enable TCP_NODELAY
   // and then send an empty packet to force all data to go.
   struct protoent* p_entry;
