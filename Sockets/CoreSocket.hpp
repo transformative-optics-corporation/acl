@@ -100,8 +100,8 @@ int noint_block_write(SOCKET outsock, const char* buffer, size_t length);
  *      This will also take care of problems caused by interrupted system
  * calls, retrying the read when they occur.
  *	This routine will either read the requested number of bytes and
- * return that or return -1 (in the case of an error) or the number
- * of bytes read (in the case of EOF being reached before all the data arrives).
+ * return that or return -1 (in the case of an error or EOF being reached
+ * before all the data arrives).
  * @param [in] insock Socket to read from
  * @param [out] buffer Pointer to the buffer to write the data to.  The client
  *          must have allocated at least length characters here.

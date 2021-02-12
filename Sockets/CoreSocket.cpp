@@ -519,7 +519,7 @@ int acl::CoreSocket::noint_block_read(int infile, char buffer[], size_t length)
 	} while ((ret > 0) && (static_cast<size_t>(sofar) < length));
 
 	if (ret == -1) return (-1); /* Error during read */
-	if (ret == 0) return (sofar);   /* EOF reached */
+	if (ret == 0) return (-1);   /* EOF reached */
 
 	return (sofar); /* All bytes read */
 }
@@ -655,9 +655,10 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_
 
     // A closed socket will report that it has characters ready to
     // read but when you go to read them there will not be any available.
-    // Check to see if that happened here.
+    // Check to see if that happened here.  If so, report failure because
+    // we're never going to get what we asked for.
     if (ret == 0) {
-      return static_cast<int>(sofar);
+      return -1;
     }
 
 	} while ((ret > 0) && (sofar < length));
