@@ -100,8 +100,8 @@ int noint_block_write(SOCKET outsock, const char* buffer, size_t length);
  *      This will also take care of problems caused by interrupted system
  * calls, retrying the read when they occur.
  *	This routine will either read the requested number of bytes and
- * return that or return -1 (in the case of an error) or the number
- * of bytes read (in the case of EOF being reached before all the data arrives).
+ * return that or return -1 (in the case of an error or EOF being reached
+ * before all the data arrives).
  * @param [in] insock Socket to read from
  * @param [out] buffer Pointer to the buffer to write the data to.  The client
  *          must have allocated at least length characters here.
@@ -240,6 +240,7 @@ public:
   int keepInterval = 5;
   unsigned userTimeout = 15000;
   bool nodelay = true;
+  bool ignoreSIGPIPE = true;
 
   // These are the system defaults
   void UseSystemDefaults() {
@@ -249,6 +250,7 @@ public:
     keepInterval = -1;
     userTimeout = 0;
     nodelay = false;
+    ignoreSIGPIPE = false;
   }
 };
 
@@ -326,9 +328,9 @@ int udp_request_lob_packet(
  * @param [in] NIC_IP Name or dotted-decimal IP address of the network
  *          interface to use.  The default Null pointer means "listen on all".
  * @param [in] reuseAddr Forcibly bind to a port even if it is already open
- *           by another application?  This is useful when there is a zombie
- *           server on a well-known port and you're trying to re-open that
- *           port as its replacement.
+ *           (but not bound for accept) by another application.  This is useful
+ *           when there is a zombie server on a well-known port and you're
+ *           trying to re-open that port as its replacement.
  * @param [in] backlog How many connections can be pending before new ones
  *          are rejected.
  * @return Opened socket on success, BAD_SOCKET on failure.

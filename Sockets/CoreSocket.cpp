@@ -9,7 +9,7 @@
 #include <climits>
 #include <iostream>
 #include <CoreSocket.hpp>
-#ifdef _WIN32
+#ifdef ACL_USE_WINSOCK_SOCKETS
 #include "Ws2ipdef.h"
 #endif
 
@@ -519,7 +519,7 @@ int acl::CoreSocket::noint_block_read(int infile, char buffer[], size_t length)
 	} while ((ret > 0) && (static_cast<size_t>(sofar) < length));
 
 	if (ret == -1) return (-1); /* Error during read */
-	if (ret == 0) return (sofar);   /* EOF reached */
+	if (ret == 0) return (-1);   /* EOF reached */
 
 	return (sofar); /* All bytes read */
 }
@@ -581,6 +581,10 @@ int acl::CoreSocket::noint_block_read(SOCKET insock, char* buffer, size_t length
 int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_t length,
 	struct timeval* timeout)
 {
+  if (infile == acl::CoreSocket::BAD_SOCKET) {
+    return -1;
+  }
+
 	int ret; /* Return value from the read() */
 	struct timeval timeout2;
 	struct timeval* timeout2ptr;
@@ -649,9 +653,17 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_
 			ret = nread;
 		}
 
+    // A closed socket will report that it has characters ready to
+    // read but when you go to read them there will not be any available.
+    // Check to see if that happened here.  If so, report failure because
+    // we're never going to get what we asked for.
+    if (ret == 0) {
+      return -1;
+    }
+
 	} while ((ret > 0) && (sofar < length));
 #ifndef ACL_USE_WINSOCK_SOCKETS
-	if (ret == -1) return (-1); /* Error during read */
+	if (ret == -1) return -1; /* Error during read */
 #endif
 
 	return static_cast<int>(sofar); /* All bytes read */
@@ -804,7 +816,7 @@ bool acl::CoreSocket::set_tcp_socket_options(SOCKET s, TCPOptions options)
 				ret = false;
 			}
 		}
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(ACL_USE_WINSOCK_SOCKETS) && !defined(__APPLE__)
 		if (setsockopt(s, IPPROTO_TCP, TCP_USER_TIMEOUT, SOCK_CAST & options.userTimeout,
 			sizeof(options.userTimeout)) < 0) {
 			perror("set_tcp_socket_options(): setsockopt(TCP_USER_TIMEOUT) failed");
@@ -836,6 +848,12 @@ bool acl::CoreSocket::set_tcp_socket_options(SOCKET s, TCPOptions options)
 			}
 		}
 	}
+
+  if (options.ignoreSIGPIPE) {
+#ifndef ACL_USE_WINSOCK_SOCKETS
+    signal(SIGPIPE, SIG_IGN);
+#endif
+  }
 #endif
 
 	return ret;
@@ -1112,7 +1130,7 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
 		}
 		else {
 
-#if !defined(hpux) && !defined(__hpux) && !defined(_WIN32) && !defined(sparc)
+#if !defined(hpux) && !defined(__hpux) && !defined(ACL_USE_WINSOCK_SOCKETS) && !defined(sparc)
 			herror("gethostbyname error:");
 #else
 			perror("gethostbyname error:");
@@ -1169,7 +1187,7 @@ int acl::CoreSocket::shutdown_socket(SOCKET sock)
 	if (sock == BAD_SOCKET) {
 		return -100;
 	}
-#ifdef _WIN32
+#ifdef ACL_USE_WINSOCK_SOCKETS
 	return shutdown(sock, SD_BOTH);
 #else
 	return shutdown(sock, SHUT_RDWR);
@@ -1182,7 +1200,7 @@ bool acl::CoreSocket::cork_tcp_socket(SOCKET sock)
     fprintf(stderr, "cork_tcp_socket(): Bad socket\n");
     return false;
   }
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(ACL_USE_WINSOCK_SOCKETS) || defined(__APPLE__)
   // We don't have an cork function on Windows, so we disable TCP_NODELAY
   // to try and convince it to keep data in buffers for awhile.
   struct protoent* p_entry;
@@ -1213,7 +1231,7 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
     fprintf(stderr, "uncork_tcp_socket(): Bad socket\n");
     return false;
   }
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(ACL_USE_WINSOCK_SOCKETS) || defined(__APPLE__)
   // We don't have an uncork function on Windows, so we enable TCP_NODELAY
   // and then send an empty packet to force all data to go.
   struct protoent* p_entry;
@@ -1242,6 +1260,9 @@ bool acl::CoreSocket::uncork_tcp_socket(SOCKET sock)
 
 int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 {
+  if (s == acl::CoreSocket::BAD_SOCKET) {
+    return -1;
+  }
 #ifdef ACL_USE_WINSOCK_SOCKETS
 	// On Windows, we're still using select.  It turns out that the Windows
 	// implementation of poll() does not work in some circumstances.
