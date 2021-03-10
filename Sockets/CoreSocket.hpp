@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <mutex>
 
 //=======================================================================
 // Figure out whether we're using Windows sockets or not.
@@ -417,5 +418,8 @@ double ntoh(double d);
 
 int64_t hton(int64_t d);
 int64_t ntoh(int64_t d);
+
+/// static mutex for locking around bind() to prevent port assignment conflicts
+static std::mutex m_portMutex;
 
 }  }	// End of namespace definitions.
