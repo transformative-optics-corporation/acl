@@ -1028,7 +1028,8 @@ int acl::CoreSocket::udp_request_lob_packet(
 }
 
 acl::CoreSocket::SOCKET acl::CoreSocket::get_a_TCP_socket(int* listen_portnum,
-	const char* NIC_IP, int backlog, bool reuseAddr)
+	const char* NIC_IP, int backlog, bool reuseAddr,
+  const acl::CoreSocket::TCPOptions *options)
 {
   if (listen_portnum == nullptr) {
     fprintf(stderr, "get_a_TCP_socket: Null port pointer.\n");
@@ -1045,9 +1046,18 @@ acl::CoreSocket::SOCKET acl::CoreSocket::get_a_TCP_socket(int* listen_portnum,
   unsigned short port = static_cast<unsigned short>(*listen_portnum);
 	acl::CoreSocket::SOCKET ret = open_tcp_socket(&port, NIC_IP, reuseAddr);
 	if (ret < 0) {
-		fprintf(stderr, "get_a_TCP_socket:  socket didn't open.\n");
+		fprintf(stderr, "get_a_TCP_socket: socket didn't open.\n");
 		return acl::CoreSocket::BAD_SOCKET;
 	}
+
+  // Set the options on the socket if we have them
+  if (options) {
+    if (!set_tcp_socket_options(ret, *options)) {
+        fprintf(stderr, "get_a_TCP_socket: unable to set tcp options\n");
+        close_socket(ret);
+        return acl::CoreSocket::BAD_SOCKET;
+    }
+  }
   
   if (listen(ret, backlog)) {
 		fprintf(stderr, "get_a_TCP_socket: listen() failed.\n");
@@ -1086,7 +1096,7 @@ int acl::CoreSocket::poll_for_accept(SOCKET listen_sock, SOCKET* accept_sock,
 }
 
 bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
-	const char* NICaddress, SOCKET *s)
+	const char* NICaddress, SOCKET *s, const acl::CoreSocket::TCPOptions *options)
 {
 	if (s == nullptr) {
 		fprintf(stderr, "connect_tcp_to: Null socket pointer\n");
@@ -1103,6 +1113,16 @@ bool acl::CoreSocket::connect_tcp_to(const char* addr, int port,
 		return false;
 	}
 	client.sin_family = AF_INET;
+
+  // Set the options on the socket if we have them
+  if (options) {
+    if (!set_tcp_socket_options(*s, *options)) {
+        fprintf(stderr, "connect_tcp_to: unable to set tcp options\n");
+        close_socket(*s);
+        *s = acl::CoreSocket::BAD_SOCKET;
+        return false;
+    }
+  }
 
 	// gethostbyname() fails on SOME Windows NT boxes, but not all,
 	// if given an IP octet string rather than a true name.

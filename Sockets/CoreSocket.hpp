@@ -332,13 +332,15 @@ int udp_request_lob_packet(
  *           when there is a zombie server on a well-known port and you're
  *           trying to re-open that port as its replacement.
  * @param [in] backlog How many connections can be pending before new ones
- *          are rejected.
+ *           are rejected.
+ * @param [in] options TCP socket options to set before calling listen()
+ *           on the socket.  If nullptr, nothing is set.
  * @return Opened socket on success, BAD_SOCKET on failure.
  */
 
 acl::CoreSocket::SOCKET get_a_TCP_socket(int* listen_portnum,
 	const char* NIC_IP = NULL, int backlog = 1000,
-  bool reuseAddr = false);
+  bool reuseAddr = false, const acl::CoreSocket::TCPOptions *options = nullptr);
 
 /**
  *   This function returns the host IP address in string form.  For example,
@@ -362,8 +364,11 @@ int getmyIP(char* myIPchar, unsigned maxlen,
 /// @param [in] NICaddress Name of the network card to use, can be obtained
 ///             by calling getmyIP() or set to NULL to use the default network card.
 /// @param [out] s Pointer to be filled in with the socket that is connected.
+/// @param [in] options TCP options to be set on the socket before connect()
+///             is called.  If this is Null, do not set options.
 /// @return True on success, false on failure.
-bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *s);
+bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *s,
+        const acl::CoreSocket::TCPOptions *options = nullptr);
 
 /// @brief Close a socket.
 /// @param [in] Socket descriptor returned by open_socket() or one of the routines
