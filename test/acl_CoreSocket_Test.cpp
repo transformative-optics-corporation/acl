@@ -1,6 +1,9 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <future>
+#include <mutex>
+#include <set>
 #include <CoreSocket.hpp>
 
 using namespace acl::CoreSocket;
@@ -404,13 +407,14 @@ void Usage(std::string name)
   std::cerr << "Usage: " << name << " [[--server PORT] | [--client HOST PORT]]" << std::endl;
   std::cerr << "       --server: Run only the server tests on the specified port on all NICs" << std::endl;
   std::cerr << "       --client: Run only the client tests and connect to  the specified port on the specified host name" << std::endl;
+  std::cerr << "       --portConflicts: Run only the port conflict test" << std::endl;
   exit(1);
 }
 
 int main(int argc, const char* argv[])
 {
   size_t realParams = 0;
-  bool doServer = true, doClient = true;
+  bool doServer = true, doClient = true, doPortConflicts = true;
   std::string hostName = "localhost";
   int port = 12345;
   for (int i = 1; i < argc; i++) {
@@ -424,6 +428,9 @@ int main(int argc, const char* argv[])
       doServer = false;
       if (++i >= argc) { Usage(argv[0]); }
       port = atoi(argv[i]);
+    } else if (std::string("--portConflicts").compare(argv[i]) == 0) {
+        doClient = false;
+        doServer = false;
     } else if (argv[i][0] == '-') {
       Usage(argv[0]);
     } else switch (++realParams) {
@@ -702,6 +709,96 @@ int main(int argc, const char* argv[])
       return 310;
     }
     std::cout << "...Client success" << std::endl;
+  }
+
+  // Test for port assignment conflicts when opening multiple simultaneous sockets
+  // on an arbitrary port. We run this test several times since failure is probablistic.
+  if (doPortConflicts) {
+      std::cout << "Testing for multithreaded port assignment conflicts..." << std::endl;
+      int numSocks = 200;
+      int numIter = 10;
+      for (int j = 0; j < numIter; j++) {
+          std::cout << "...testing iteration " << j << std::endl;
+
+          std::promise<void> go;
+          std::shared_future<void> ready_future(go.get_future());
+          std::vector<std::thread*> threads;
+          std::vector<int> assignedPorts(numSocks);
+          std::mutex returnMutex;
+
+          // create threads to wait on "go" signal for port assignment action
+          //TODO add client-side local port assignment via connect_udp/tcp_to to threadbomb test
+          for (int i = 0; i < numSocks; i++) {
+              if (i % 2 == 0) { //test tcp server port assignment
+                  std::thread* tmp = new std::thread(
+                        [&, i](){
+                            int p = 0;
+
+                            ready_future.wait();
+                            SOCKET s = get_a_TCP_socket(&p);
+                            if (s == BAD_SOCKET) {
+                                std::lock_guard<std::mutex> l(returnMutex);
+                                std::cerr << "Error opening TCP server socket #" << i << std::endl;
+                                assignedPorts[i] = -1;
+                            } else {
+                                std::lock_guard<std::mutex> l(returnMutex);
+                                assignedPorts[i] = p;
+                                if (0 != close_socket(s)) {
+                                    std::cerr << "Error closing TCP server socket #" << i << std::endl;
+                                }
+                            }
+                        });
+                  threads.push_back(tmp);
+              } else { //test udp server port assignment
+                  std::thread* tmp = new std::thread(
+                        [&, i](){
+                            unsigned short p = 0;
+
+                            ready_future.wait();
+                            SOCKET s = open_udp_socket(&p);
+                            if (s == BAD_SOCKET) {
+                                std::lock_guard<std::mutex> l(returnMutex);
+                                std::cerr << "Error opening UDP server socket #" << i << std::endl;
+                                assignedPorts[i] = -1;
+                            } else {
+                                std::lock_guard<std::mutex> l(returnMutex);
+                                assignedPorts[i] = p;
+                                if (0 != close_socket(s)) {
+                                    std::cerr << "Error closing UDP server socket #" << i << std::endl;
+                                }
+                            }
+                        });
+                  threads.push_back(tmp);
+              }
+          }
+
+          // set "go" flag
+          go.set_value();
+
+          // wait for all threads to join, then check return values
+          for (int i = 0; i < numSocks; i++) {
+              threads[i]->join();
+              delete threads[i];
+          }
+          int numFailures = 0;
+          std::set<int> portSet;
+          for (int i = 0; i < numSocks; i++) {
+              int p = assignedPorts[i];
+              if (p == -1) {
+                  numFailures++;
+              } else {
+                  auto rc = portSet.insert(p);
+                  if (!rc.second) {
+                      std::cerr << "...Error: found duplicate port assignment: " << p 
+                                << " on thread " << i << " of " << numSocks << std::endl;
+                      return 601;
+                  }
+              }
+          }
+          std::cout << "...iteration " << j << " success. Finished with no port conflicts, " 
+                    << numFailures << " socket open failures, out of " << numSocks
+                    << " attempted socket creations" << std::endl;
+      }
   }
 
 
