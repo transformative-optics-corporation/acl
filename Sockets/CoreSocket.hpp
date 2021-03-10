@@ -290,6 +290,17 @@ int get_local_socket_name(char* local_host, size_t max_length,
 	const char* remote_host);
 
 /**
+ * Retrieves the local port number of the given SOCKET.
+ *
+ * @param [in] sock Socket descriptor returned by open_socket() or one of the 
+ *          routines that call it; open_udp_socket() or open_tcp_socket().
+ *
+ * @return Returns -1 on getsockname() error, -100 on BAD_SOCKET, 
+ *          or the integer port number on success
+ */
+int get_local_socket_port(SOCKET sock);
+
+/**
  * This section deals with implementing a method of connection termed a
  * UDP request.  This works by having the client open a TCP socket that
  * it listens on. It then lobs datagrams to the server asking to be

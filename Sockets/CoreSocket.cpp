@@ -989,6 +989,23 @@ int acl::CoreSocket::get_local_socket_name(char* local_host, size_t max_length,
 	return ret;
 }
 
+int acl::CoreSocket::get_local_socket_port(SOCKET sock)
+{
+	if (sock == BAD_SOCKET) {
+		return -100;
+	}
+
+	socklen_t len = sizeof(struct sockaddr);
+	struct sockaddr_in addr = {};
+	if (getsockname(sock, (struct sockaddr *)&addr, &len)) {
+	    fprintf(stderr,
+	            "get_local_socket_port: cannot get socket name.\n");
+	    return -1;
+    }
+
+    return ntohs(addr.sin_port);
+}
+
 int acl::CoreSocket::udp_request_lob_packet(
 	SOCKET udp_sock,      // Socket to use to send
 	const char*,         // Name of the machine to call
