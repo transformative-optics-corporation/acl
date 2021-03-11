@@ -724,6 +724,7 @@ int main(int argc, const char* argv[])
           std::shared_future<void> ready_future(go.get_future());
           std::vector<std::thread*> threads;
           std::vector<int> assignedPorts(numSocks);
+          std::vector<SOCKET> createdSockets(numSocks);
           std::mutex returnMutex;
 
           // create threads to wait on "go" signal for port assignment action
@@ -736,17 +737,14 @@ int main(int argc, const char* argv[])
 
                             ready_future.wait();
                             SOCKET s = get_a_TCP_socket(&p);
+
+                            std::lock_guard<std::mutex> l(returnMutex);
                             if (s == BAD_SOCKET) {
-                                std::lock_guard<std::mutex> l(returnMutex);
-                                std::cerr << "Error opening TCP server socket #" << i << std::endl;
                                 assignedPorts[i] = -1;
                             } else {
-                                std::lock_guard<std::mutex> l(returnMutex);
                                 assignedPorts[i] = p;
-                                if (0 != close_socket(s)) {
-                                    std::cerr << "Error closing TCP server socket #" << i << std::endl;
-                                }
                             }
+                            createdSockets[i] = s;
                         });
                   threads.push_back(tmp);
               } else { //test udp server port assignment
@@ -756,17 +754,14 @@ int main(int argc, const char* argv[])
 
                             ready_future.wait();
                             SOCKET s = open_udp_socket(&p);
+
+                            std::lock_guard<std::mutex> l(returnMutex);
                             if (s == BAD_SOCKET) {
-                                std::lock_guard<std::mutex> l(returnMutex);
-                                std::cerr << "Error opening UDP server socket #" << i << std::endl;
                                 assignedPorts[i] = -1;
                             } else {
-                                std::lock_guard<std::mutex> l(returnMutex);
                                 assignedPorts[i] = p;
-                                if (0 != close_socket(s)) {
-                                    std::cerr << "Error closing UDP server socket #" << i << std::endl;
-                                }
                             }
+                            createdSockets[i] = s;
                         });
                   threads.push_back(tmp);
               }
@@ -775,25 +770,45 @@ int main(int argc, const char* argv[])
           // set "go" flag
           go.set_value();
 
-          // wait for all threads to join, then check return values
+          // wait for all threads to join
           for (int i = 0; i < numSocks; i++) {
               threads[i]->join();
-              delete threads[i];
           }
+
+          //check return values
           int numFailures = 0;
           std::set<int> portSet;
+          std::set<SOCKET> sockSet;
           for (int i = 0; i < numSocks; i++) {
               int p = assignedPorts[i];
               if (p == -1) {
+                  std::cerr << "Error opening socket #" << i << std::endl;
                   numFailures++;
               } else {
+                  //std::cout << "thread " << i << "\tsocket " << createdSockets[i] << "\tassigned port " << p << std::endl;
+                  auto rc2 = sockSet.insert(createdSockets[i]);
+                  if (!rc2.second) {
+                      std::cerr << "...Error: Iteration " << j << " found duplicate socket assignment: port " << p 
+                                << " socket " << createdSockets[i] << " on thread " << i << " of " << numSocks << std::endl;
+                      return 602;
+                  }
                   auto rc = portSet.insert(p);
                   if (!rc.second) {
-                      std::cerr << "...Error: found duplicate port assignment: " << p 
-                                << " on thread " << i << " of " << numSocks << std::endl;
+                      std::cerr << "...Error: Iteration " << j << " found duplicate port assignment: port " << p 
+                                << " socket " << createdSockets[i] << " on thread " << i << " of " << numSocks << std::endl;
                       return 601;
                   }
               }
+
+
+          }
+
+          // close sockets and delete threads
+          for (int i = 0; i < numSocks; i++) {
+              if (0 != close_socket(createdSockets[i])) {
+                  std::cerr << "Error closing socket from thread " << i << std::endl;
+              }
+              delete threads[i];
           }
           std::cout << "...iteration " << j << " success. Finished with no port conflicts, " 
                     << numFailures << " socket open failures, out of " << numSocks
