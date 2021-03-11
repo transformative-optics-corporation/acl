@@ -715,11 +715,9 @@ int main(int argc, const char* argv[])
   // on an arbitrary port. We run this test several times since failure is probablistic.
   if (doPortConflicts) {
       std::cout << "Testing for multithreaded port assignment conflicts..." << std::endl;
-      int numSocks = 200;
-      int numIter = 10;
+      int numSocks = 1000;
+      int numIter = 20;
       for (int j = 0; j < numIter; j++) {
-          std::cout << "...testing iteration " << j << std::endl;
-
           std::promise<void> go;
           std::shared_future<void> ready_future(go.get_future());
           std::vector<std::thread*> threads;
@@ -729,8 +727,9 @@ int main(int argc, const char* argv[])
 
           // create threads to wait on "go" signal for port assignment action
           //TODO add client-side local port assignment via connect_udp/tcp_to to threadbomb test
-          for (int i = 0; i < numSocks; i++) {
-              if (i % 2 == 0) { //test tcp server port assignment
+          if (j < numIter/2) { //test tcp server port assignment
+              std::cout << "...testing iteration " << j << " using TCP sockets" << std::endl;
+              for (int i = 0; i < numSocks; i++) {
                   std::thread* tmp = new std::thread(
                         [&, i](){
                             int p = 0;
@@ -747,7 +746,10 @@ int main(int argc, const char* argv[])
                             createdSockets[i] = s;
                         });
                   threads.push_back(tmp);
-              } else { //test udp server port assignment
+              }
+          } else {
+              std::cout << "...testing iteration " << j << " using UDP sockets" << std::endl;
+              for (int i = 0; i < numSocks; i++) {
                   std::thread* tmp = new std::thread(
                         [&, i](){
                             unsigned short p = 0;
@@ -813,6 +815,7 @@ int main(int argc, const char* argv[])
           std::cout << "...iteration " << j << " success. Finished with no port conflicts, " 
                     << numFailures << " socket open failures, out of " << numSocks
                     << " attempted socket creations" << std::endl;
+          //std::this_thread::sleep_for(std::chrono::seconds(10));
       }
   }
 

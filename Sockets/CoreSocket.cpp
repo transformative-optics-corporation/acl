@@ -740,11 +740,7 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_socket(int type, unsigned short* p
 		ntohl(name.sin_addr.s_addr) & 0xff);
 #endif
 
-    // here we lock a static mutex to prevent port conflicts due to 
-    // bind() not being a threadsafe function
-    std::unique_lock<std::mutex> l(CoreSocket::m_portMutex);
 	int rc = bind(sock, (struct sockaddr*) & name, namelen);
-	l.unlock();
 	if (rc < 0) {
 		fprintf(stderr, "open_socket:  can't bind address");
 		if (portno) {
