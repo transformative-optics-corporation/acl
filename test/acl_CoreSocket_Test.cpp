@@ -51,14 +51,59 @@ void TestReadFromSocket(int &result, SOCKET s, int bytes, int chunkSize)
   return;
 }
 
+/// @brief Function to read and verify the specified number of bytes from a socket.
+///
+/// This will ensure that it can read the requested number of bytes from the socket
+/// and that the bytes contain modulo-128 numbers, 0 through 127 and then repeating.
+/// This version uses a timeout-based read with a long timeout to verify that the
+/// timeout read works.
+/// @param [in] s Socket to read from
+/// @param [in] bytes Total number of bytes to read
+/// @param [in] chunkSize Size of chunks to read from the socket.
+/// @param [out] result number of bytes read, -1 if there is a mismatch in the
+///           data compared to what was expected.
+void TestReadFromSocketTimeout(int &result, SOCKET s, int bytes, int chunkSize,
+      struct timeval timeout)
+{
+  int sofar = 0;
+  std::vector<char> buf(bytes);
+
+  // Get all the bytes
+  // Re-issue the read so long as we don't fail.
+  do {
+    int remaining = bytes - sofar;
+    if (remaining > chunkSize) { remaining = chunkSize; }
+    struct timeval thisTime = timeout;
+    int thisRead = acl::CoreSocket::noint_block_read_timeout(s, &buf[sofar], remaining,
+        &thisTime);
+    if (thisRead < 0) {
+      result = -1;
+      return;
+    }
+    sofar += thisRead;
+  } while (sofar < bytes);
+  
+  // Check the values
+  for (int i = 0; i < bytes; i++) {
+    if (buf[i] != (i % 128)) {
+      result = -1;
+      return;
+    }
+  }
+
+  result = sofar;
+  return;
+}
+
 /// @brief Function to write the specified number of modulo-128 bytes to a socket.
 ///
 /// This will ensure that it can write the requested number of bytes to the socket.
 /// @param [in] s Socket to write to
 /// @param [in] bytes Total number of bytes to write
 /// @param [in] chunkSize Size of chunks to write to the socket.
+/// @param [in] delay Delay in seconds between chunk sends.
 /// @param [out] result Number of bytes successfully written.
-void TestWriteToSocket(int& result, SOCKET s, int bytes, int chunkSize)
+void TestWriteToSocket(int& result, SOCKET s, int bytes, int chunkSize, float delay)
 {
   int sofar = 0;
   int remaining = bytes;
@@ -84,7 +129,7 @@ void TestWriteToSocket(int& result, SOCKET s, int bytes, int chunkSize)
     remaining -= nextChunk;
 
     // Sleep very briefly to keep from flooding the receiver in UDP tests.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::duration<float>(delay));
   }
 
   result = sofar;
@@ -123,7 +168,7 @@ void TestClientSide(int &result, std::string host, int port)
     }
     int ret;
     for (size_t i = 0; i < g_numSockets; i++) {
-      TestWriteToSocket(ret, socks[i], g_packetSize, g_packetSize);
+      TestWriteToSocket(ret, socks[i], g_packetSize, g_packetSize, 0);
       if (ret != g_packetSize) {
         std::cerr << "TestClientSide: Error writing to socket " << i << std::endl;
         result = 3;
@@ -446,6 +491,7 @@ int main(int argc, const char* argv[])
 
   // Test creating and destroying both types of server sockets
   // using the most-basic open command.
+  std::cout << "Testing basic socket creation" << std::endl;
   {
     SOCKET s;
     s = open_socket(SOCK_STREAM, nullptr, nullptr);
@@ -534,9 +580,10 @@ int main(int argc, const char* argv[])
     }
 
     // Store the results of our threads, testing reading and writing.
+    std::cout << "Testing multi-threaded sending" << std::endl;
     int NUM_BYTES = 1000000;
     int writeBytes = 0, readBytes = 0;
-    std::thread wt(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 65000);
+    std::thread wt(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 65000, 0);
     std::thread rt(TestReadFromSocket, std::ref(readBytes), rSock, NUM_BYTES, 65000);
     wt.join();
     rt.join();
@@ -548,6 +595,29 @@ int main(int argc, const char* argv[])
       std::cerr << "Reading from socket failed" << std::endl;
       return 311;
     }
+    std::cout << "... Completed" << std::endl;
+
+    // Re-test using twice as many half-sized sends and reads with timeouts to be sure
+    // we can handle partial packets.
+    std::cout << "Testing multi-threaded sending with timeouts" << std::endl;
+    NUM_BYTES = 1000000;
+    writeBytes = 0;
+    readBytes = 0;
+    struct timeval timeout = {0,10000};
+    std::thread wt2(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 5000, 0.01);
+    std::thread rt2(TestReadFromSocketTimeout, std::ref(readBytes), rSock, NUM_BYTES, 65000,
+        timeout);
+    wt2.join();
+    rt2.join();
+    if (writeBytes != NUM_BYTES) {
+      std::cerr << "Writing to socket with timeouts failed" << std::endl;
+      return 312;
+    }
+    if (readBytes != NUM_BYTES) {
+      std::cerr << "Reading from socket with timeouts failed" << std::endl;
+      return 313;
+    }
+    std::cout << "... Completed" << std::endl;
 
     // Done with the sockets
     if (0 != close_socket(wSock)) {
@@ -567,6 +637,7 @@ int main(int argc, const char* argv[])
   // Test opening UDP server socket and a remote on different
   // threads and sending a bunch of data between them.  We use different threads to
   // avoid blocking when the network buffers get full.
+  std::cout << "Testing multi-threaded UDP" << std::endl;
   {
     // Construct and connect our writing and reading sockets.  First we make a server socket
     // then connect a client to it.
@@ -584,9 +655,10 @@ int main(int argc, const char* argv[])
     }
 
     // Store the results of our threads, testing reading and writing.
+    // Slight delay to avoid flooding the receiver
     int NUM_BYTES = 1000000;
     int writeBytes = 0, readBytes = 0;
-    std::thread wt(TestWriteToSocket, std::ref(writeBytes), rSock, NUM_BYTES, 65000);
+    std::thread wt(TestWriteToSocket, std::ref(writeBytes), rSock, NUM_BYTES, 65000, 1e-3);
     std::thread rt(TestReadFromSocket, std::ref(readBytes), sSock, NUM_BYTES, 65000);
     wt.join();
     rt.join();
@@ -671,7 +743,7 @@ int main(int argc, const char* argv[])
       std::cerr << "Error closing read socket on any port and interface" << std::endl;
       return 522;
     }
-  }  
+  }
 
   // Test running separate server and client tests that talk to each other over the
   // network.  The default is to run both threads from this same process, but it can
