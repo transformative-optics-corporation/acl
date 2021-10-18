@@ -1,13 +1,13 @@
+/**
+ *    \copyright Copyright 2021 Aqueti, Inc. All rights reserved.
+ *    \license This project is released under the MIT Public License.
+**/
+
 /******************************************************************************
  *
  * \file RandomIDGenerator.cpp
  * \author Andrew Ferg
  * \brief Class methods for RandomIDGenerator
- *
- * Copyright Aqueti 2018
- * Distributed under the Boost Software License, Version 1.0.
- * (See accompanying file LICENSE_1_0.txt or copy at
- * http://www.boost.org/LICENSE_1_0.txt)
  *
  *****************************************************************************/
 

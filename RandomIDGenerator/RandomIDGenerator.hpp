@@ -1,13 +1,13 @@
+/**
+ *    \copyright Copyright 2021 Aqueti, Inc. All rights reserved.
+ *    \license This project is released under the MIT Public License.
+**/
+
 /******************************************************************************
  *
  * \file RandomIDGenerator.hpp
  * \author Andrew Ferg
  * \brief Class of static functions that generate random strings and integers
- *
- * Copyright Aqueti 2018
- * Distributed under the Boost Software License, Version 1.0.
- * (See accompanying file LICENSE_1_0.txt or copy at
- * http://www.boost.org/LICENSE_1_0.txt)
  *
  *****************************************************************************/
 #pragma once

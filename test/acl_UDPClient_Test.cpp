@@ -1,3 +1,8 @@
+/**
+ *    \copyright Copyright 2021 Aqueti, Inc. All rights reserved.
+ *    \license This project is released under the MIT Public License.
+**/
+
 #include <iostream>
 #ifndef _WIN32
 #include <sys/time.h>
