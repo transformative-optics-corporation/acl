@@ -1321,7 +1321,7 @@ int acl::CoreSocket::check_ready_to_read_timeout(SOCKET s, double timeout)
 	return 0;
 #else
 	// On all systems that support it, use the polling interface.
-	struct pollfd poll_set = {0};
+	struct pollfd poll_set = {};
 	poll_set.fd = s;
 	poll_set.events = POLLIN;
 	int ret = poll(&poll_set, 1, static_cast<int>(timeout*1000));
