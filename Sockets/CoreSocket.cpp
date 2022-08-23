@@ -472,6 +472,65 @@ int acl::CoreSocket::noint_select(int width, fd_set* readfds, fd_set* writefds,
 	return (ret);
 }
 
+#ifndef ACL_USE_WINSOCK_SOCKETS
+
+int acl::CoreSocket::noint_block_write(int outfile, const char buffer[], size_t length)
+{
+	int sofar = 0; /* How many characters sent so far */
+	int ret;       /* Return value from write() */
+
+	do {
+		/* Try to write the remaining data */
+		ret = write(outfile, buffer + sofar, length - sofar);
+		sofar += ret;
+
+		/* Ignore interrupted system calls - retry */
+		if ((ret == -1) && (socket_error == ACL_EINTR)) {
+			ret = 1;    /* So we go around the loop again */
+			sofar += 1; /* Restoring it from above -1 */
+		}
+
+	} while ((ret > 0) && (static_cast<size_t>(sofar) < length));
+
+	if (ret == -1) return (-1); /* Error during write */
+	if (ret == 0) return (0);   /* EOF reached */
+
+	return (sofar); /* All bytes written */
+}
+
+int acl::CoreSocket::noint_block_read(int infile, char buffer[], size_t length)
+{
+	int sofar; /* How many we read so far */
+	int ret;   /* Return value from the read() */
+
+	// TCH 4 Jan 2000 - hackish - Cygwin will block forever on a 0-length
+	// read(), and from the man pages this is close enough to in-spec that
+	// other OS may do the same thing.
+
+	if (!length) {
+		return 0;
+	}
+	sofar = 0;
+	do {
+		/* Try to read all remaining data */
+		ret = read(infile, buffer + sofar, length - sofar);
+		sofar += ret;
+
+		/* Ignore interrupted system calls - retry */
+		if ((ret == -1) && (socket_error == ACL_EINTR)) {
+			ret = 1;    /* So we go around the loop again */
+			sofar += 1; /* Restoring it from above -1 */
+		}
+	} while ((ret > 0) && (static_cast<size_t>(sofar) < length));
+
+	if (ret == -1) return (-1); /* Error during read */
+	if (ret == 0) return (-1);   /* EOF reached */
+
+	return (sofar); /* All bytes read */
+}
+
+#else /* winsock sockets */
+
 int acl::CoreSocket::noint_block_write(SOCKET outsock, const char* buffer, size_t length)
 {
     int sofar = 0; /* How many characters sent so far */
@@ -527,10 +586,12 @@ int acl::CoreSocket::noint_block_read(SOCKET insock, char* buffer, size_t length
     return (sofar); /* All bytes read */
 }
 
-int acl::CoreSocket::noint_block_read_timeout(SOCKET insock, char* buffer, size_t length,
+#endif /* ACL_USE_WINSOCK_SOCKETS */
+
+int acl::CoreSocket::noint_block_read_timeout(SOCKET infile, char* buffer, size_t length,
 	struct timeval* timeout)
 {
-  if (insock == acl::CoreSocket::BAD_SOCKET) {
+  if (infile == acl::CoreSocket::BAD_SOCKET) {
     return -1;
   }
 
@@ -570,7 +631,7 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET insock, char* buffer, size_
 		if (timeout2ptr) {
 			to = timeout2ptr->tv_sec + timeout2ptr->tv_usec * 1e-6;
 		}
-		int ready = check_ready_to_read_timeout(insock, to);
+		int ready = check_ready_to_read_timeout(infile, to);
 		if (ready == -1) {
 			return -1;
 		}
@@ -596,7 +657,7 @@ int acl::CoreSocket::noint_block_read_timeout(SOCKET insock, char* buffer, size_
 		}
 
 		{
-			int nread = recv(insock, buffer + sofar,
+			int nread = recv(infile, buffer + sofar,
 				static_cast<int>(length - sofar), 0);
 			sofar += nread;
 			ret = nread;

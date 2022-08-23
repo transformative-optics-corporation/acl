@@ -136,7 +136,7 @@ int noint_select(int width, fd_set* readfds, fd_set* writefds,
  * of characters read before timeout (in the case of a timeout).
  */
 
-int noint_block_read_timeout(SOCKET insock, char* buffer, size_t length,
+int noint_block_read_timeout(SOCKET infile, char* buffer, size_t length,
 	struct timeval* timeout);
 
 /**
