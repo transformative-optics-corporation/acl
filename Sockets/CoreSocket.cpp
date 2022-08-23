@@ -533,52 +533,57 @@ int acl::CoreSocket::noint_block_read(int infile, char buffer[], size_t length)
 
 int acl::CoreSocket::noint_block_write(SOCKET outsock, const char* buffer, size_t length)
 {
-	int nwritten;
-	size_t sofar = 0;
-	do {
-		/* Try to write the remaining data */
-		nwritten =
-			send(outsock, buffer + sofar, static_cast<int>(length - sofar), 0);
+    int sofar = 0; /* How many characters sent so far */
+    int ret;       /* Return value from write() */
 
-		if (nwritten == SOCKET_ERROR) {
-			return -1;
-		}
+    do {
+        /* Try to write the remaining data */
+        ret = send(outsock, buffer + sofar, static_cast<int>(length) - sofar, 0);
+        sofar += ret;
 
-		sofar += nwritten;
-	} while (sofar < length);
+        /* Ignore interrupted system calls - retry */
+        if ((ret == -1) && (socket_error == ACL_EINTR)) {
+            ret = 1;    /* So we go around the loop again */
+            sofar += 1; /* Restoring it from above -1 */
+        }
 
-	return static_cast<int>(sofar); /* All bytes written */
+    } while ((ret > 0) && (static_cast<size_t>(sofar) < length));
+
+    if (ret == -1) return (-1); /* Error during write */
+    if (ret == 0) return (0);   /* EOF reached */
+
+    return (sofar); /* All bytes written */
 }
 
 int acl::CoreSocket::noint_block_read(SOCKET insock, char* buffer, size_t length)
 {
-	int nread;
-	size_t sofar = 0;
+    int sofar; /* How many we read so far */
+    int ret;   /* Return value from the read() */
 
-	// TCH 4 Jan 2000 - hackish - Cygwin will block forever on a 0-length
-	// read(), and from the man pages this is close enough to in-spec that
-	// other OS may do the same thing.
+    // TCH 4 Jan 2000 - hackish - Cygwin will block forever on a 0-length
+    // read(), and from the man pages this is close enough to in-spec that
+    // other OS may do the same thing.
 
-	if (!length) {
-		return 0;
-	}
+    if (!length) {
+        return 0;
+    }
+    sofar = 0;
+    do {
+        /* Try to read all remaining data */
+        ret = recv(insock, buffer + sofar, static_cast<int>(length) - sofar, 0);
+        sofar += ret;
 
-	do {
-		/* Try to read all remaining data */
-		nread =
-			recv(insock, buffer + sofar, static_cast<int>(length - sofar), 0);
+        /* Ignore interrupted system calls - retry */
+        if ((ret == -1) && (socket_error == ACL_EINTR)) {
+            ret = 1;    /* So we go around the loop again */
+            sofar += 1; /* Restoring it from above -1 */
+        }
+    } while ((ret > 0) && (static_cast<size_t>(sofar) < length));
 
-		if (nread == SOCKET_ERROR) {
-			return -1;
-		}
-		if (nread == 0) { /* socket closed */
-			return static_cast<int>(sofar);
-		}
+    if (ret == -1) return (-1); /* Error during read */
+    if (ret == 0) return (-1);   /* EOF reached */
 
-		sofar += nread;
-	} while (sofar < length);
-
-	return static_cast<int>(sofar); /* All bytes read */
+    return (sofar); /* All bytes read */
 }
 
 #endif /* ACL_USE_WINSOCK_SOCKETS */
