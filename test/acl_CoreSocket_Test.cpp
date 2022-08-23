@@ -419,9 +419,9 @@ void TestServerSide(int &result, int port)
         close_socket(rSock);
         return;
       }
-      ret = noint_block_write(rSock, buf, -1);
-      if (ret != -1) {
-        std::cerr << "TestServerSide: Partial write " << i << ": expected " << -1 << ", got " << ret << std::endl;
+      ret = noint_block_write(rSock, buf, 500);
+      if (ret != 500) {
+        std::cerr << "TestServerSide: Partial write " << i << ": expected " << 500 << ", got " << ret << std::endl;
         result = 32;
         close_socket(rSock);
         return;
