@@ -246,8 +246,8 @@ void TestClientSide(int &result, std::string host, int port)
         return;
       }
       int ret = noint_block_read(sock, buf, 1000);
-      if (ret != 500) {
-        std::cerr << "TestClientSide: Partial read expected " << 500 << ", got " << ret << std::endl;
+      if (ret != -1) {
+        std::cerr << "TestClientSide: Partial read expected " << -1 << ", got " << ret << std::endl;
         result = 22;
         close_socket(sock);
         return;
@@ -375,8 +375,8 @@ void TestServerSide(int &result, int port)
       return;
     }
     int ret = noint_block_read(rSock, buf, 1000);
-    if (ret != 500) {
-      std::cerr << "TestServerSide: Partial read: expected " << 500 << ", got " << ret << std::endl;
+    if (ret != -1) {
+      std::cerr << "TestServerSide: Partial read: expected " << -1 << ", got " << ret << std::endl;
       result = 13;
       close_socket(rSock);
       return;
@@ -419,9 +419,9 @@ void TestServerSide(int &result, int port)
         close_socket(rSock);
         return;
       }
-      ret = noint_block_write(rSock, buf, 500);
-      if (ret != 500) {
-        std::cerr << "TestServerSide: Partial write " << i << ": expected " << 500 << ", got " << ret << std::endl;
+      ret = noint_block_write(rSock, buf, -1);
+      if (ret != -1) {
+        std::cerr << "TestServerSide: Partial write " << i << ": expected " << -1 << ", got " << ret << std::endl;
         result = 32;
         close_socket(rSock);
         return;
@@ -788,6 +788,7 @@ int main(int argc, const char* argv[])
 
 
   /// Test reuseAddr parameter to open_socket() on both TCP and UDP.
+  std::cout << "Testing reuseAddr" << std::endl;
   {
       unsigned short port = 12343;
       SOCKET s;
@@ -828,6 +829,7 @@ int main(int argc, const char* argv[])
       close_socket(s2);
       close_socket(s);
   }
+  std::cout << "...success" << std::endl;
 
   /// @todo More tests
 
