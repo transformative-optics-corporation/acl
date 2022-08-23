@@ -787,7 +787,47 @@ int main(int argc, const char* argv[])
   }
 
 
-  /// @todo Test reuseAddr parameter to open_socket() on both TCP and UDP.
+  /// Test reuseAddr parameter to open_socket() on both TCP and UDP.
+  {
+      unsigned short port = 12343;
+      SOCKET s;
+      s = open_tcp_socket(&port, nullptr, true);
+      if (s == BAD_SOCKET) {
+          std::cerr << "Error opening TCP socket on specific port" << std::endl;
+          return 401;
+      }
+      SOCKET s2;
+      s2 = open_tcp_socket(&port, nullptr, false);
+      if (s2 != BAD_SOCKET) {
+          std::cerr << "Improperly allowed re-opening TCP socket on specific port" << std::endl;
+          return 402;
+      }
+      s2 = open_tcp_socket(&port, nullptr, true);
+      if (s2 == BAD_SOCKET) {
+          std::cerr << "Failed to re-open TCP socket on specific port" << std::endl;
+          return 402;
+      }
+      close_socket(s2);
+      close_socket(s);
+
+      s = open_udp_socket(&port, nullptr, true);
+      if (s == BAD_SOCKET) {
+          std::cerr << "Error opening UDP socket on specific port" << std::endl;
+          return 410;
+      }
+      s2 = open_udp_socket(&port, nullptr, false);
+      if (s2 != BAD_SOCKET) {
+          std::cerr << "Improperly allowed re-opening UDP socket on specific port" << std::endl;
+          return 411;
+      }
+      s2 = open_udp_socket(&port, nullptr, true);
+      if (s2 == BAD_SOCKET) {
+          std::cerr << "Failed to re-open UDP socket on specific port" << std::endl;
+          return 412;
+      }
+      close_socket(s2);
+      close_socket(s);
+  }
 
   /// @todo More tests
 

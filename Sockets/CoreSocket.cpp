@@ -697,16 +697,12 @@ acl::CoreSocket::SOCKET acl::CoreSocket::open_socket(int type, unsigned short* p
 		if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, SOCK_CAST & enable, sizeof(enable)) < 0) {
 			perror("setsockopt(SO_REUSEADDR) failed");
 		}
-	}
-
-	// Added by Eric Boren to address socket reconnectivity on the Android
-#ifdef __ANDROID__
-	int32_t optval = 1;
-	int32_t sockoptsuccess =
-		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
-	// fprintf(stderr, "setsockopt returned %i, optval: %i\n", sockoptsuccess,
-	//        optval);
+#ifdef SO_REUSEPORT
+        if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, SOCK_CAST & enable, sizeof(enable)) < 0) {
+            perror("setsockopt(SO_REUSEPORT) failed");
+        }
 #endif
+	}
 
 	namelen = sizeof(name);
 
