@@ -153,7 +153,7 @@ void TestClientSide(int &result, std::string host, int port)
     //=======================================================================================
     // Test opening g_numSockets simultaneous connections and then writing a single
     // g_packetSize-byte packet to each connection.
-    std::cout << "Testing connecting " << g_numSockets << " sockets..." << std::endl;
+    std::cout << "Testing client connecting " << g_numSockets << " sockets..." << std::endl;
     std::vector<acl::CoreSocket::SOCKET> socks;
     for (size_t i = 0; i < g_numSockets; i++) {
       acl::CoreSocket::SOCKET sock;
@@ -188,13 +188,13 @@ void TestClientSide(int &result, std::string host, int port)
       }
     }
   }
-  std::cout << "...connection test success" << std::endl;
+  std::cout << "...client connection test success" << std::endl;
 
 
   std::cout << "Testing partial reads on client side" << std::endl;
   {
     //=======================================================================================
-    // Test making a connection and then trying to write fewer bytes than are sent before
+    // Test making a connection and then trying to write fewer bytes than are needed before
     // closing the connection.  Try once with the far end using a non-timeout read and a second time
     // using a timeout read.  Then try two read requests where the far side closes the socket after
     // partial sends.
@@ -246,8 +246,8 @@ void TestClientSide(int &result, std::string host, int port)
         return;
       }
       int ret = noint_block_read(sock, buf, 1000);
-      if (ret != -1) {
-        std::cerr << "TestClientSide: Partial read expected " << -1 << ", got " << ret << std::endl;
+      if (ret != 500) {
+        std::cerr << "TestClientSide: Partial read expected " << 500 << ", got " << ret << std::endl;
         result = 22;
         close_socket(sock);
         return;
@@ -300,7 +300,7 @@ void TestServerSide(int &result, int port)
     //=======================================================================================
     // Test accepting g_numSockets simultaneous connection requests and reading a single
     // g_packetSize-byte packet from each connection.
-    std::cout << "Testing accepting " << g_numSockets << " sockets..." << std::endl;
+    std::cout << "Testing server accepting " << g_numSockets << " sockets..." << std::endl;
     int myPort = port;
     SOCKET lSock = get_a_TCP_socket(&myPort, nullptr, 1000, true);
     if (lSock == BAD_SOCKET) {
@@ -342,7 +342,7 @@ void TestServerSide(int &result, int port)
       result = 6;
     }
   }
-  std::cout << "...accepting test success" << std::endl;
+  std::cout << "...server accepting test success" << std::endl;
 
   std::cout << "Testing partial reads on server side" << std::endl;
   {
@@ -358,7 +358,6 @@ void TestServerSide(int &result, int port)
     if (lSock == BAD_SOCKET) {
       std::cerr << "TestServerSide: Error Opening listening socket on a specific port for partial read" << std::endl;
       result = 10;
-      close_socket(rSock);
       return;
     }
 
@@ -376,8 +375,8 @@ void TestServerSide(int &result, int port)
       return;
     }
     int ret = noint_block_read(rSock, buf, 1000);
-    if (ret != -1) {
-      std::cerr << "TestServerSide: Partial read expected " << -1 << ", got " << ret << std::endl;
+    if (ret != 500) {
+      std::cerr << "TestServerSide: Partial read: expected " << 500 << ", got " << ret << std::endl;
       result = 13;
       close_socket(rSock);
       return;
@@ -400,7 +399,7 @@ void TestServerSide(int &result, int port)
     struct timeval tensec = { 10, 0 };
     ret = noint_block_read_timeout(rSock, buf, 1000, &tensec);
     if (ret != -1) {
-      std::cerr << "TestServerSide: Partial read timeout expected " << -1 << ", got " << ret << std::endl;
+      std::cerr << "TestServerSide: Partial read timeout: expected " << -1 << ", got " << ret << std::endl;
       result = 22;
       close_socket(rSock);
       return;
@@ -422,7 +421,7 @@ void TestServerSide(int &result, int port)
       }
       ret = noint_block_write(rSock, buf, 500);
       if (ret != 500) {
-        std::cerr << "TestServerSide: Partial write " << i << " expected " << 500 << ", got " << ret << std::endl;
+        std::cerr << "TestServerSide: Partial write " << i << ": expected " << 500 << ", got " << ret << std::endl;
         result = 32;
         close_socket(rSock);
         return;
@@ -588,7 +587,7 @@ int main(int argc, const char* argv[])
     std::cout << "Testing multi-threaded sending" << std::endl;
     int NUM_BYTES = 1000000;
     int writeBytes = 0, readBytes = 0;
-    std::thread wt(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 65000, 0);
+    std::thread wt(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 65000, 0.01f);
     std::thread rt(TestReadFromSocket, std::ref(readBytes), rSock, NUM_BYTES, 65000);
     wt.join();
     rt.join();
@@ -600,7 +599,6 @@ int main(int argc, const char* argv[])
       std::cerr << "Reading from socket failed" << std::endl;
       return 311;
     }
-    std::cout << "... Completed" << std::endl;
 
     // Re-test using twice as many half-sized sends and reads with timeouts to be sure
     // we can handle partial packets.
@@ -609,7 +607,7 @@ int main(int argc, const char* argv[])
     writeBytes = 0;
     readBytes = 0;
     struct timeval timeout = {0,10000};
-    std::thread wt2(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 5000, 0.01);
+    std::thread wt2(TestWriteToSocket, std::ref(writeBytes), wSock, NUM_BYTES, 5000, 0.01f);
     std::thread rt2(TestReadFromSocketTimeout, std::ref(readBytes), rSock, NUM_BYTES, 65000,
         timeout);
     wt2.join();
@@ -663,7 +661,7 @@ int main(int argc, const char* argv[])
     // Slight delay to avoid flooding the receiver
     int NUM_BYTES = 1000000;
     int writeBytes = 0, readBytes = 0;
-    std::thread wt(TestWriteToSocket, std::ref(writeBytes), rSock, NUM_BYTES, 65000, 1e-3);
+    std::thread wt(TestWriteToSocket, std::ref(writeBytes), rSock, NUM_BYTES, 65000, 0.01f);
     std::thread rt(TestReadFromSocket, std::ref(readBytes), sSock, NUM_BYTES, 65000);
     wt.join();
     rt.join();
@@ -686,10 +684,12 @@ int main(int argc, const char* argv[])
       return 421;
     }
   }
+  std::cout << "... Completed" << std::endl;
 
   // Test opening TCP server socket and a remote and checking for partial reads
   // with timeouts in the case where the server just sends part of the data and then
   // leaves the connection open.
+  std::cout << "Testing TCP partial reads" << std::endl;
   {
     // Construct and connect our writing and reading sockets.  First we make a listening socket
     // then connect a read to it and accept the write on it.
@@ -754,6 +754,7 @@ int main(int argc, const char* argv[])
   // network.  The default is to run both threads from this same process, but it can
   // also be specified on the command line to run them as separate processes on the
   // same or different computers.
+  std::cout << "Testing separate client and server" << std::endl;
   std::thread st, ct;
   int clientWorked = -1, serverWorked = -1;
   if (doServer) {
@@ -764,20 +765,24 @@ int main(int argc, const char* argv[])
     std::cout << "Testing client..." << std::endl;
     ct = std::thread(TestClientSide, std::ref(clientWorked), hostName, port);
   }
+  int returnCode = 0;
   if (doServer) {
     st.join();
     if (serverWorked != 0) {
       std::cerr << "Server code failed with code " << serverWorked << std::endl;
-      return 311;
+      returnCode = 311;
     }
-    std::cout << "...Server success" << std::endl;
   }
   if (doClient) {
     ct.join();
     if (clientWorked != 0) {
       std::cerr << "Client code failed with code " << clientWorked << std::endl;
-      return 310;
+      returnCode = 310;
     }
+    if (returnCode) {
+        return returnCode;
+    }
+    std::cout << "...Server success" << std::endl;
     std::cout << "...Client success" << std::endl;
   }
 
