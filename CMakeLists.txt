@@ -275,7 +275,7 @@ list(APPEND TARGET_LIST acl )
   enable_testing()
   set(TEST_APPS
     acl_CoreSocket_Test
-    acl_UDPClient_Test
+    #acl_UDPClient_Test
   )
   foreach(APP ${TEST_APPS})
     add_executable(${APP} test/${APP}.cpp)

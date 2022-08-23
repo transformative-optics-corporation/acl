@@ -29,14 +29,14 @@ int main()
     std::cerr << "Failed to open UDP socket!" << std::endl;
     return -1;
   }else{
-    std::cerr <<"Connected via UDP!" << std::endl;
+    std::cerr <<"Connected UDP port" << std::endl;
   }
 
   if (6 != noint_block_write(s, write_buffer, 6)) {
     std::cerr <<"Error while writing!" << std::endl;
     return -2;
   }else{
-    std::cerr <<"Write Successful!" << std::endl;
+    std::cerr <<"Write Successful" << std::endl;
   }
 
   int n = noint_block_read_timeout(s, read_buffer, 10, &timeout);
@@ -44,7 +44,7 @@ int main()
     std::cerr <<"Error while reading: " << n << " bytes read" << std::endl;
     return -3;
   }else{
-    std::cerr <<"Read Successful!" << std::endl;
+    std::cerr <<"Read Successful" << std::endl;
   }
 
   for(int i=0;i<n;++i)
