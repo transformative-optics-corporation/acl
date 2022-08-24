@@ -1167,7 +1167,7 @@ bool acl::CoreSocket::cork_tcp_socket(SOCKET sock)
     return false;
   }
 #if defined(ACL_USE_WINSOCK_SOCKETS) || defined(__APPLE__)
-  // We don't have an cork function on Windows, so we disable TCP_NODELAY
+  // We don't have a cork function on Windows, so we disable TCP_NODELAY
   // to try and convince it to keep data in buffers for awhile.
   struct protoent* p_entry;
 

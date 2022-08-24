@@ -839,17 +839,35 @@ int main(int argc, const char* argv[])
       SOCKET lSock = get_a_TCP_socket(&myPort, nullptr, 1000, true);
       SOCKET rSock; ///< used for the accepted read connection socket
       if (lSock == BAD_SOCKET) {
-          std::cerr << "TestServerSide: Error Opening listening socket on a specific port for accept timeout" << std::endl;
+          std::cerr << "Error Opening listening socket on a specific port for accept timeout" << std::endl;
           return 500;
       }
 
       // First connection request for partial read
       if (0 != poll_for_accept(lSock, &rSock, 1.0)) {
-          std::cerr << "TestServerSide: Accept timeout failed" << std::endl;
+          std::cerr << "Accept timeout failed" << std::endl;
           close_socket(lSock);
           return 501;
       }
       close_socket(rSock);
+  }
+  std::cout << "...success" << std::endl;
+
+  {
+      std::vector<char> name(1024);
+      int ret = get_local_socket_name(name.data(), name.size(), "localhost");
+      if (ret <= 0) {
+          std::cerr << "Error in get_local_socket_name(localhost)" << std::endl;
+          return 600;
+      }
+      std::cout << "Socket name to connect to localhost = " << name.data() << std::endl;
+      ret = get_local_socket_name(name.data(), name.size(), "google.com");
+      if (ret <= 0) {
+          std::cerr << "Error in get_local_socket_name(google.com)" << std::endl;
+          std::cerr << "  (This may be because we have no Internet connection)" << std::endl;
+      } else {
+          std::cout << "Socket name to connect to google = " << name.data() << std::endl;
+      }
   }
 
   /// @todo More tests, from set_tcp_socket_options() on

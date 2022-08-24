@@ -279,9 +279,8 @@ SOCKET connect_udp_port(const char* machineName, int remotePort,
  * back on the correct IP address.  Presumably, this happens when the gateway
  * is configured to be a single outgoing NIC.  This was on a Linux box.  We
  * need a more reliable way to select the outgoing NIC.  XXX Actually, the
- * problem may be that we aren't listening on the incorrect port -- the UDP
- * receipt code may use the IP address the message came from rather than the
- * machine name in the message.
+ * problem may be that the UDP receipt code may use the IP address the message
+ * came from rather than the machine name in the message.
  *
  * @param local_host A buffer of size 64 that will contain the name of the local
  * interface.
