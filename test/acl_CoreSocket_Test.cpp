@@ -831,7 +831,28 @@ int main(int argc, const char* argv[])
   }
   std::cout << "...success" << std::endl;
 
-  /// @todo More tests
+  std::cout << "Testing accept timeout" << std::endl;
+  {
+      //=======================================================================================
+      // Test accepting a connection when there is no connection made.
+      int myPort = 0;
+      SOCKET lSock = get_a_TCP_socket(&myPort, nullptr, 1000, true);
+      SOCKET rSock; ///< used for the accepted read connection socket
+      if (lSock == BAD_SOCKET) {
+          std::cerr << "TestServerSide: Error Opening listening socket on a specific port for accept timeout" << std::endl;
+          return 500;
+      }
+
+      // First connection request for partial read
+      if (0 != poll_for_accept(lSock, &rSock, 1.0)) {
+          std::cerr << "TestServerSide: Accept timeout failed" << std::endl;
+          close_socket(lSock);
+          return 501;
+      }
+      close_socket(rSock);
+  }
+
+  /// @todo More tests, from set_tcp_socket_options() on
 
   std::cout << "Success!" << std::endl;
   return 0;
