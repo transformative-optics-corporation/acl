@@ -190,7 +190,6 @@ void TestClientSide(int &result, std::string host, int port)
   }
   std::cout << "...client connection test success" << std::endl;
 
-
   std::cout << "Testing partial reads on client side" << std::endl;
   {
     //=======================================================================================
@@ -281,8 +280,6 @@ void TestClientSide(int &result, std::string host, int port)
       }
       close_socket(sock);
     }
-
-    /// @todo
   }
 
   result = 0;
@@ -432,15 +429,11 @@ void TestServerSide(int &result, int port)
       }
     }
 
-
-    /// @todo
-
     // Done
     if (0 != close_socket(lSock)) {
       std::cerr << "TestServerSide: Error closing listening socket for partial read/write tests" << std::endl;
       result = 99;
     }
-
   }
 
   result = 0;
@@ -958,8 +951,6 @@ int main(int argc, const char* argv[])
   }
   std::cout << "...success" << std::endl;
 #endif
-
-  /// @todo More tests, from set_tcp_socket_options() on
 
   std::cout << "Success!" << std::endl;
   return 0;
