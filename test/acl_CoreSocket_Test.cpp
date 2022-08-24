@@ -843,32 +843,121 @@ int main(int argc, const char* argv[])
           return 500;
       }
 
-      // First connection request for partial read
+      // Wait and time out
       if (0 != poll_for_accept(lSock, &rSock, 1.0)) {
           std::cerr << "Accept timeout failed" << std::endl;
           close_socket(lSock);
           return 501;
       }
       close_socket(rSock);
+      close_socket(lSock);
   }
   std::cout << "...success" << std::endl;
 
+  std::cout << "Testing getting socket names" << std::endl;
   {
+      //=======================================================================================
+      // Test getting socket names.
       std::vector<char> name(1024);
       int ret = get_local_socket_name(name.data(), name.size(), "localhost");
       if (ret <= 0) {
           std::cerr << "Error in get_local_socket_name(localhost)" << std::endl;
           return 600;
       }
-      std::cout << "Socket name to connect to localhost = " << name.data() << std::endl;
+      std::cout << "  Socket name to connect to localhost = " << name.data() << std::endl;
       ret = get_local_socket_name(name.data(), name.size(), "google.com");
       if (ret <= 0) {
           std::cerr << "Error in get_local_socket_name(google.com)" << std::endl;
           std::cerr << "  (This may be because we have no Internet connection)" << std::endl;
       } else {
-          std::cout << "Socket name to connect to google = " << name.data() << std::endl;
+          std::cout << "  Socket name to connect to google = " << name.data() << std::endl;
       }
   }
+  std::cout << "...success" << std::endl;
+
+#ifndef ACL_USE_WINSOCK_SOCKETS
+  // Windows corking is known not to work reliably.
+  std::cout << "Testing cork and uncork" << std::endl;
+  {
+      //=======================================================================================
+      // Test corking an uncorking a TCP socket.
+      int myPort = 3883;
+      SOCKET lSock = get_a_TCP_socket(&myPort, nullptr, 1000, true);
+      if (lSock == BAD_SOCKET) {
+          std::cerr << "Error Opening listening socket on a specific port for cork test" << std::endl;
+          return 700;
+      }
+
+      // Make a connection to the socket.
+      acl::CoreSocket::SOCKET sock;
+      if (!connect_tcp_to("127.0.0.1", myPort, nullptr, &sock)) {
+          std::cerr << "Error Opening write socket for cork test" << std::endl;
+          close_socket(lSock);
+          return 701;
+      }
+
+      // Listen for a connection.
+      SOCKET rSock; ///< used for the accepted read connection socket
+      if (1 != poll_for_accept(lSock, &rSock, 10.0)) {
+          std::cerr << "Accept timeout failed for cork test" << std::endl;
+          close_socket(sock);
+          close_socket(lSock);
+          return 702;
+      }
+
+      // Cork the socket, then send ten 10-byte packets and ensure we don't
+      // get anything.
+      if (!cork_tcp_socket(sock)) {
+          std::cerr << "Could not cork socket" << std::endl;
+          close_socket(sock);
+          close_socket(lSock);
+          close_socket(rSock);
+          return 703;
+      }
+      char buf[100];
+      for (int i = 0; i < 10; i++) {
+          if (10 != noint_block_write(sock, buf, 10)) {
+              std::cerr << "Error writing to corked socket" << std::endl;
+              close_socket(sock);
+              close_socket(lSock);
+              close_socket(rSock);
+              return 704;
+          }
+          struct timeval millisec = { 0, 1000 };
+          int ret = noint_block_read_timeout(rSock, buf, 100, &millisec);
+          if (ret != 0) {
+              std::cerr << "Error: Read data from corked socket: " << ret << std::endl;
+              close_socket(sock);
+              close_socket(lSock);
+              close_socket(rSock);
+              return 705;
+          }
+      }
+
+      // Uncork the socket and then read to ensure we get the data.
+      if (!uncork_tcp_socket(sock)) {
+          std::cerr << "Could not uncork socket" << std::endl;
+          close_socket(sock);
+          close_socket(lSock);
+          close_socket(rSock);
+          return 710;
+      }
+      struct timeval tensec = { 10, 0 };
+      int ret = noint_block_read_timeout(rSock, buf, 100, &tensec);
+      if (ret != 100) {
+          std::cerr << "Read after uncork failed to get data" << std::endl;
+          close_socket(sock);
+          close_socket(lSock);
+          close_socket(rSock);
+          return 711;
+      }
+
+      close_socket(sock);
+      close_socket(rSock);
+      close_socket(lSock);
+  }
+  std::cout << "...success" << std::endl;
+#endif
 
   /// @todo More tests, from set_tcp_socket_options() on
 

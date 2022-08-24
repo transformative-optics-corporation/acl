@@ -294,31 +294,6 @@ int get_local_socket_name(char* local_host, size_t max_length,
 	const char* remote_host);
 
 /**
- * This section deals with implementing a method of connection termed a
- * UDP request.  This works by having the client open a TCP socket that
- * it listens on. It then lobs datagrams to the server asking to be
- * called back at the socket. This allows it to timeout on waiting for
- * a connection request, resend datagrams in case some got lost, or give
- * up at any time. The whole algorithm is implemented in the
- * udp_request_call() function; the functions before that are helper
- * functions that have been broken out to allow a subset of the algorithm
- * to be run by a connection whose server has dropped and they want to
- * re-establish it.
- *
- * This routine will lob a datagram to the given port on the given
- * machine asking it to call back at the port on this machine that
- * is also specified. It returns 0 on success and -1 on failure.
- */
-
-int udp_request_lob_packet(
-	SOCKET udp_sock,      // Socket to use to send
-	const char*,         // Name of the machine to call
-	const int,            // UDP port on remote machine
-	const int local_port, // TCP port on this machine
-	const char* NIC_IP = NULL);
-
-
-/**
  * @brief Get a TCP socket that is ready to accept connections.
  *
  * Ready to accept means that listen() has already been called on it.
@@ -346,22 +321,6 @@ acl::CoreSocket::SOCKET get_a_TCP_socket(int* listen_portnum,
 	const char* NIC_IP = NULL, int backlog = 1000,
   bool reuseAddr = false, const acl::CoreSocket::TCPOptions *options = nullptr);
 
-/**
- *   This function returns the host IP address in string form.  For example,
- * the machine "ioglab.cs.unc.edu" becomes "152.2.130.90."  This is done
- * so that the remote host can connect back even if it can't resolve the
- * DNS name of this host.  This is especially useful at conferences, where
- * DNS may not even be running.
- *   If the NIC_IP name is passed in as NULL but the SOCKET passed in is
- * valid, then look up the address associated with that socket; this is so
- * that when a machine has multiple NICs, it will send the outgoing request
- * for UDP connections to the same place that its TCP connection is on.
- */
-
-int getmyIP(char* myIPchar, unsigned maxlen,
-	const char* NIC_IP = NULL,
-	SOCKET incoming_socket = BAD_SOCKET);
-
 /// @brief Open a client TCP socket and connect it to a server on a known port
 /// @param [in] DNS name or dotted-decimal IP name of the host to connect to.
 /// @param [in] port The port to connect to.
@@ -380,13 +339,16 @@ bool connect_tcp_to(const char* addr, int port, const char *NICaddress, SOCKET *
 /// @return 0 on success, nonzero on failure, -100 if sock is BAD_SOCKET.
 int close_socket(SOCKET sock);
 
-/// @brief Disables sends or receives on a socket.  Does not need to be called.
+/// @brief Disables sends or receives on a socket.  Does not need to be called
+///        before close_socket(), which will also do this.
 /// @param [in] Socket descriptor returned by open_socket() or one of the routines
 ///         that call it; open_udp_socket() or open_tcp_socket().
 /// @return 0 on success, nonzero on failure, -100 if sock is BAD_SOCKET.
 int shutdown_socket(SOCKET sock);
 
 /// @brief Cause a TCP socket to accumulate data but not to send it.
+///
+/// On Windows, this has the side effect of disabling TCP_NODELAY on the socket.
 bool cork_tcp_socket(SOCKET sock);
 
 /// @brief Cause a TCP socket to send all accumulated data immediately.
