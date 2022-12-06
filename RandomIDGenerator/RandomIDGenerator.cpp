@@ -25,11 +25,10 @@ std::string RandomIDGenerator::genAlphanumericString(unsigned int len)
     std::srand(acl::getUsecTime()); //use current time as seed for RNG
 
     std::string str;
-    int pos;
-    while (str.size() <= len) {
-        int randomInt = std::rand();
-        pos = randomInt % alphabet.length();
-        str += alphabet.substr(pos,1);
+    str.resize(len);
+    int modVal = alphabet.size();
+    for (size_t i = 0; i < len; i++) {
+        str[i] = alphabet[std::rand() % modVal];
     }
 
     return str;
