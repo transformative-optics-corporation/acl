@@ -40,7 +40,7 @@ namespace acl
     
         public:
             TSMap();
-            ~TSMap();
+            virtual ~TSMap();
 
             // read functions
             std::pair<Value, bool>  find(Key k) const;

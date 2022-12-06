@@ -24,7 +24,7 @@ class ThreadWorker : private Thread
 {
     public: 
         ThreadWorker(std::function<void()> f=nullptr);
-        ~ThreadWorker();
+        virtual ~ThreadWorker();
         void setMainLoopFunction(std::function<void()> f=nullptr);
 
         using Thread::Start;

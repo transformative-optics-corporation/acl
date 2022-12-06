@@ -31,7 +31,7 @@ protected:
 
 public:
                   Thread();
-    virtual       ~Thread();
+    virtual ~Thread();
 
     virtual bool  Start(void);
     virtual void  Stop(void);

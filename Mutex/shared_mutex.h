@@ -62,7 +62,7 @@ namespace acl
             shared_lock( shared_mutex& m, std::defer_lock_t t );
             shared_lock( shared_mutex& m, std::adopt_lock_t t );
             shared_lock( const shared_lock& other ) = delete;
-            ~shared_lock();
+            virtual ~shared_lock();
             void lock();
             bool try_lock();
             void unlock();

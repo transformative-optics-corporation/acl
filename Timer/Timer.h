@@ -86,7 +86,7 @@ private:
 
 public:
     Timer();
-    ~Timer();
+    virtual ~Timer();
     SMPTETime   getTimeCode();
     void        updateTimeCodeOffset(int64_t refTimeCode);
     int64_t     getTimeCodeOffset();
