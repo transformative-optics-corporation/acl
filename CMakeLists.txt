@@ -271,7 +271,7 @@ list(APPEND TARGET_LIST acl )
 # Build tests, if we're configured to do so.
 #############################################
 
-#if(BUILD_TESTS)
+if(BUILD_TESTS)
   enable_testing()
   set(TEST_APPS
     acl_CoreSocket_Test
@@ -286,7 +286,7 @@ list(APPEND TARGET_LIST acl )
     add_test(NAME ${APP} COMMAND ${APP})
     install(TARGETS ${APP} RUNTIME DESTINATION bin COMPONENT tests)
   endforeach()
-#endif()
+endif()
 
 #############################################
 #install library files
