@@ -16,7 +16,7 @@ int main()
   const char* ip_address = "10.0.0.89";
   unsigned short port_number = 8090;
   char write_buffer[6] = {0x00,0x01,0x00,0x00,0x00,0x00};
-  char read_buffer[10] = {0};
+  char read_buffer[10] = {};
   struct timeval timeout;
   timeout.tv_sec = 1;
   timeout.tv_usec = 0;
