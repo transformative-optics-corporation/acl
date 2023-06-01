@@ -223,7 +223,7 @@ SOCKET open_udp_socket(unsigned short* portno = nullptr, const char* IPaddress =
   * @return BAD_SOCKET on failure and the socket identifier on success.
   */
 
-SOCKET open_tcp_socket(unsigned short* portno = NULL, const char* NIC_IP = NULL,
+SOCKET open_tcp_socket(unsigned short* portno = nullptr, const char* NIC_IP = nullptr,
   bool reuseAddr = false);
 
 /**
@@ -266,7 +266,7 @@ bool set_tcp_socket_options(SOCKET s, TCPOptions options = TCPOptions());
  */
 
 SOCKET connect_udp_port(const char* machineName, int remotePort,
-	const char* NIC_IP = NULL);
+	const char* NIC_IP = nullptr);
 
 /**
  * Retrieves the IP address or hostname of the local interface used to connect
@@ -318,14 +318,14 @@ int get_local_socket_name(char* local_host, size_t max_length,
  */
 
 acl::CoreSocket::SOCKET get_a_TCP_socket(int* listen_portnum,
-	const char* NIC_IP = NULL, int backlog = 1000,
+	const char* NIC_IP = nullptr, int backlog = 1000,
   bool reuseAddr = false, const acl::CoreSocket::TCPOptions *options = nullptr);
 
 /// @brief Open a client TCP socket and connect it to a server on a known port
 /// @param [in] DNS name or dotted-decimal IP name of the host to connect to.
 /// @param [in] port The port to connect to.
 /// @param [in] NICaddress Name of the network card to use, can be obtained
-///             by calling getmyIP() or set to NULL to use the default network card.
+///             by calling getmyIP() or set to nullptr to use the default network card.
 /// @param [out] s Pointer to be filled in with the socket that is connected.
 /// @param [in] options TCP options to be set on the socket before connect()
 ///             is called.  If this is Null, do not set options.
