@@ -675,7 +675,7 @@ bool acl::CoreSocket::set_tcp_socket_options(SOCKET s, TCPOptions options)
 			}
 		}
 
-		if (options.keepAlive) {
+		if (options.nodelay) {
 			struct protoent* p_entry;
 			int nonzero = 1;
 
