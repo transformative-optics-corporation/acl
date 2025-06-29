@@ -20,7 +20,6 @@
 #include <random>
 #include <thread>
 #include <assert.h>
-#include "Timer.h"
 #include <fstream>
 
 #pragma once
